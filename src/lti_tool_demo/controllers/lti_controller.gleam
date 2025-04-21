@@ -24,7 +24,7 @@ pub fn oidc_login(req: Request, app: AppContext) -> Response {
   )
 
   // Check if the state is valid
-  case lti_tool.validate_oidc_login(params) {
+  case lti_tool.validate_oidc_login(app.lti_data_provider, params) {
     Ok(_) -> {
       // Set the state in the session
       let _ = session.put_session(req, app.session_config, "state", state)

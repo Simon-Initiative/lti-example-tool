@@ -1,6 +1,7 @@
 import envoy
 import gleam/int
 import gleam/result
+import lti/providers/memory_provider
 import lti_tool_demo/app_context.{type AppContext, AppContext}
 import lti_tool_demo/database
 import lti_tool_demo/session
@@ -14,12 +15,15 @@ pub fn setup() -> AppContext {
   // Setup session_adapter
   let assert Ok(session_config) = session.init()
 
+  let assert Ok(lti_data_provider) = memory_provider.start()
+
   AppContext(
     port: load_port(),
     secret_key_base: secret_key_base,
     db: db,
     static_directory: static_directory(),
     session_config: session_config,
+    lti_data_provider: lti_data_provider,
   )
 }
 

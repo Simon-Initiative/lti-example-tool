@@ -3,6 +3,7 @@ import gleam/result
 import gleam/string
 import gleeunit
 import gleeunit/should
+import lti/providers/memory_provider
 import lti_tool_demo/app_context.{AppContext}
 import lti_tool_demo/database
 import lti_tool_demo/router
@@ -13,13 +14,10 @@ pub fn main() {
   gleeunit.main()
 }
 
-pub fn setup() {
-  todo
-  // This function is called to setup the test environment.
-}
-
 fn app_context() {
   let assert Ok(session_config) = session.init()
+
+  let assert Ok(lti_data_provider) = memory_provider.start()
 
   AppContext(
     port: 8080,
@@ -27,6 +25,7 @@ fn app_context() {
     db: database.connect("lti_tool_demo_test"),
     static_directory: "static_directory",
     session_config: session_config,
+    lti_data_provider: lti_data_provider,
   )
 }
 
