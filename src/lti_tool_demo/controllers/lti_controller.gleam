@@ -2,12 +2,12 @@ import gleam/dict.{type Dict}
 import gleam/dynamic/decode
 import gleam/result
 import lti/lti_tool
+import lti_tool_demo/app_context.{type AppContext}
 import lti_tool_demo/session
 import lti_tool_demo/utils/common.{try_with}
-import lti_tool_demo/web_context.{type WebContext}
 import wisp.{type Request, type Response, redirect}
 
-pub fn oidc_login(req: Request, app: WebContext) -> Response {
+pub fn oidc_login(req: Request, app: AppContext) -> Response {
   use params <- all_params(req)
 
   use state <- try_with(result: dict.get(params, "state"), or_else: fn(_) {

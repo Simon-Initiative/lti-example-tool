@@ -1,0 +1,10 @@
+# Example platform config(s). Copy to platforms.yml
+platforms:
+  - name: "Platform Name"
+    url: "https://platform.example.edu"
+    clientId: "10000000001"
+    authenticationEndpoint: "https://platform.example.edu/lti/authorize_redirect"
+    accesstokenEndpoint: "https://platform.example.edu/lti/authorize_redirect"
+    authConfig:
+      - method: "JWK_SET"
+        key: "https://platform.example.edu/.well-known/jwks.json"

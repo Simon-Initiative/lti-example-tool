@@ -3,21 +3,28 @@ import gleam/result
 import gleam/string
 import gleeunit
 import gleeunit/should
+import lti_tool_demo/app_context.{AppContext}
+import lti_tool_demo/database
 import lti_tool_demo/router
 import lti_tool_demo/session
-import lti_tool_demo/web_context.{WebContext}
 import wisp/testing
 
 pub fn main() {
   gleeunit.main()
 }
 
-fn web_context() {
+pub fn setup() {
+  todo
+  // This function is called to setup the test environment.
+}
+
+fn app_context() {
   let assert Ok(session_config) = session.init()
 
-  WebContext(
+  AppContext(
     port: 8080,
     secret_key_base: "secret_key_base",
+    db: database.connect("lti_tool_demo_test"),
     static_directory: "static_directory",
     session_config: session_config,
   )
@@ -25,7 +32,7 @@ fn web_context() {
 
 pub fn get_home_page_test() {
   let request = testing.get("/", [])
-  let response = router.handle_request(request, web_context())
+  let response = router.handle_request(request, app_context())
 
   response.status
   |> should.equal(200)
@@ -69,42 +76,42 @@ pub fn get_home_page_test() {
 
 pub fn post_home_page_test() {
   let request = testing.post("/", [], "a body")
-  let response = router.handle_request(request, web_context())
+  let response = router.handle_request(request, app_context())
   response.status
   |> should.equal(405)
 }
 
 pub fn page_not_found_test() {
   let request = testing.get("/nothing-here", [])
-  let response = router.handle_request(request, web_context())
+  let response = router.handle_request(request, app_context())
   response.status
   |> should.equal(404)
 }
 
 pub fn get_comments_test() {
   let request = testing.get("/comments", [])
-  let response = router.handle_request(request, web_context())
+  let response = router.handle_request(request, app_context())
   response.status
   |> should.equal(200)
 }
 
 pub fn post_comments_test() {
   let request = testing.post("/comments", [], "")
-  let response = router.handle_request(request, web_context())
+  let response = router.handle_request(request, app_context())
   response.status
   |> should.equal(201)
 }
 
 pub fn delete_comments_test() {
   let request = testing.delete("/comments", [], "")
-  let response = router.handle_request(request, web_context())
+  let response = router.handle_request(request, app_context())
   response.status
   |> should.equal(405)
 }
 
 pub fn get_comment_test() {
   let request = testing.get("/comments/123", [])
-  let response = router.handle_request(request, web_context())
+  let response = router.handle_request(request, app_context())
   response.status
   |> should.equal(200)
   response
@@ -114,7 +121,7 @@ pub fn get_comment_test() {
 
 pub fn delete_comment_test() {
   let request = testing.delete("/comments/123", [], "")
-  let response = router.handle_request(request, web_context())
+  let response = router.handle_request(request, app_context())
   response.status
   |> should.equal(405)
 }

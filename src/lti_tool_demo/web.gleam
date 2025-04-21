@@ -1,21 +1,23 @@
 import envoy
 import gleam/int
 import gleam/result
+import lti_tool_demo/app_context.{type AppContext, AppContext}
+import lti_tool_demo/database
 import lti_tool_demo/session
-import lti_tool_demo/web_context.{type WebContext, WebContext}
 import wisp
 
-pub fn setup() -> WebContext {
-  wisp.configure_logger()
-
+pub fn setup() -> AppContext {
   let secret_key_base = load_secret_key_base()
+
+  let db = database.connect("lti_tool_demo")
 
   // Setup session_adapter
   let assert Ok(session_config) = session.init()
 
-  WebContext(
+  AppContext(
     port: load_port(),
     secret_key_base: secret_key_base,
+    db: db,
     static_directory: static_directory(),
     session_config: session_config,
   )
@@ -23,7 +25,7 @@ pub fn setup() -> WebContext {
 
 pub fn middleware(
   req: wisp.Request,
-  ctx: WebContext,
+  ctx: AppContext,
   handle_request: fn(wisp.Request) -> wisp.Response,
 ) -> wisp.Response {
   let req = wisp.method_override(req)

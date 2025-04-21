@@ -1,12 +1,16 @@
 import gleam/http.{Get, Post}
+import gleam/int
+import gleam/string
 import gleam/string_tree
+import lti_tool_demo/app_context.{type AppContext}
 import lti_tool_demo/controllers/lti_controller
+import lti_tool_demo/platforms
+import lti_tool_demo/utils/common.{try_with}
 import lti_tool_demo/web
-import lti_tool_demo/web_context.{type WebContext}
 import wisp.{type Request, type Response}
 
-pub fn handle_request(req: Request, ctx: WebContext) -> Response {
-  use req <- web.middleware(req, ctx)
+pub fn handle_request(req: Request, app: AppContext) -> Response {
+  use req <- web.middleware(req, app)
 
   // Wisp doesn't have a special router abstraction, instead we recommend using
   // regular old pattern matching. This is faster than a router, is type safe,
@@ -17,13 +21,13 @@ pub fn handle_request(req: Request, ctx: WebContext) -> Response {
     [] -> home(req)
 
     // This matches `/comments`.
-    ["comments"] -> comments(req)
+    ["platforms"] -> platforms(req, app)
 
     // This matches `/comments/:id`.
     // The `id` segment is bound to a variable and passed to the handler.
-    ["comments", id] -> show_comment(req, id)
+    ["platforms", id] -> show_platform(req, app, id)
 
-    ["auth", "login"] -> lti_controller.oidc_login(req, ctx)
+    ["auth", "login"] -> lti_controller.oidc_login(req, app)
 
     // This matches all other paths.
     _ -> wisp.not_found()
@@ -35,42 +39,54 @@ fn home(req: Request) -> Response {
   // used to return a 405: Method Not Allowed response for all other methods.
   use <- wisp.require_method(req, Get)
 
-  let html = string_tree.from_string("Hello, Joe!")
+  let html =
+    string_tree.from_string(
+      "LTI Tool Demo"
+      <> "\n"
+      <> "This is an example web application that demonstrates how to build an LTI tool.",
+    )
+
   wisp.ok()
   |> wisp.html_body(html)
 }
 
-fn comments(req: Request) -> Response {
-  // This handler for `/comments` can respond to both GET and POST requests,
+fn platforms(req: Request, app: AppContext) -> Response {
+  // This handler for `/platforms` can respond to both GET and POST requests,
   // so we pattern match on the method here.
   case req.method {
-    Get -> list_comments()
-    Post -> create_comment(req)
+    Get -> list_platforms(app)
+    Post -> create_platform(req)
     _ -> wisp.method_not_allowed([Get, Post])
   }
 }
 
-fn list_comments() -> Response {
-  // In a later example we'll show how to read from a database.
-  let html = string_tree.from_string("Comments!")
+fn list_platforms(app: AppContext) -> Response {
+  let assert Ok(platforms) = platforms.all(app.db)
+
+  let html =
+    string_tree.from_string("Platforms" <> "\n" <> string.inspect(platforms))
+
   wisp.ok()
   |> wisp.html_body(html)
 }
 
-fn create_comment(_req: Request) -> Response {
-  // In a later example we'll show how to parse data from the request body.
-  let html = string_tree.from_string("Created")
-  wisp.created()
-  |> wisp.html_body(html)
+fn create_platform(_req: Request) -> Response {
+  todo
 }
 
-fn show_comment(req: Request, id: String) -> Response {
+fn show_platform(req: Request, app: AppContext, id: String) -> Response {
   use <- wisp.require_method(req, Get)
 
-  // The `id` path parameter has been passed to this function, so we could use
-  // it to look up a comment in a database.
-  // For now we'll just include in the response body.
-  let html = string_tree.from_string("Comment with id " <> id)
+  use id <- try_with(int.parse(id), or_else: fn(_) {
+    wisp.log_error("Invalid platform ID")
+    wisp.bad_request()
+  })
+
+  let assert Ok(platforms) = platforms.get(app.db, id)
+
+  let html =
+    string_tree.from_string("Platforms" <> "\n" <> string.inspect(platforms))
+
   wisp.ok()
   |> wisp.html_body(html)
 }
