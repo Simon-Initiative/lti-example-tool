@@ -1,21 +1,26 @@
 import birl
+import birl/duration
 import gleam/erlang/process
 import gleam/function.{identity}
 import gleam/list
 import gleam/order.{Lt}
 import gleam/otp/actor.{type StartError, Spec}
+import ids/uuid
 import lti/data_provider.{type DataProvider, type DataProviderMessage}
 import lti/deployment.{type Deployment}
 import lti/jwk.{type Jwk}
-import lti/nonce.{type Nonce}
+import lti/nonce.{type Nonce, Nonce}
+import lti/providers/memory_provider/tables.{type Table}
 import lti/registration.{type Registration}
+import lti_tool_demo/utils/common.{try_with}
+import lti_tool_demo/utils/logger
 
 type State {
   State(
     jwks: List(Jwk),
     nonces: List(Nonce),
-    registrations: List(Registration),
-    deployments: List(Deployment),
+    registrations: Table(Registration),
+    deployments: Table(Deployment),
   )
 }
 
@@ -45,12 +50,24 @@ fn handle_message(
       actor.continue(State(..state, jwks: [jwk, ..state.jwks]))
     }
 
-    data_provider.CreateNonce(nonce) -> {
+    data_provider.CreateNonce(reply_with) -> {
+      use nonce <- try_with(uuid.generate_v4(), or_else: fn(e) {
+        logger.error_meta("Failed to generate nonce", e)
+
+        actor.send(reply_with, Error(Nil))
+
+        actor.continue(state)
+      })
+
+      let nonce = Nonce(nonce, birl.now() |> birl.add(duration.minutes(5)))
+
+      actor.send(reply_with, Ok(nonce))
+
       actor.continue(State(..state, nonces: [nonce, ..state.nonces]))
     }
 
     data_provider.GetNonce(value, reply_with) -> {
-      let result = list.find(state.nonces, fn(nonce) { nonce.value == value })
+      let result = list.find(state.nonces, fn(nonce) { nonce.nonce == value })
 
       actor.send(reply_with, result)
 
@@ -71,37 +88,43 @@ fn handle_message(
       actor.continue(State(..state, nonces: nonces))
     }
 
-    data_provider.CreateRegistration(registration) -> {
-      actor.continue(
-        State(..state, registrations: [registration, ..state.registrations]),
-      )
+    data_provider.CreateRegistration(registration, reply_with) -> {
+      let #(updated_registrations, record) =
+        tables.insert(state.registrations, registration)
+
+      actor.send(reply_with, Ok(record))
+
+      actor.continue(State(..state, registrations: updated_registrations))
     }
 
     data_provider.GetRegistration(issuer, client_id, reply_with) -> {
-      let result =
-        list.find(state.registrations, fn(registration) {
+      let record =
+        tables.get_by(state.registrations, fn(registration) {
           registration.issuer == issuer && registration.client_id == client_id
         })
 
-      actor.send(reply_with, result)
+      actor.send(reply_with, record)
 
       actor.continue(state)
     }
 
-    data_provider.CreateDeployment(deployment) -> {
-      actor.continue(
-        State(..state, deployments: [deployment, ..state.deployments]),
-      )
+    data_provider.CreateDeployment(deployment, reply_with) -> {
+      let #(updated_deployments, record) =
+        tables.insert(state.deployments, deployment)
+
+      actor.send(reply_with, Ok(record))
+
+      actor.continue(State(..state, deployments: updated_deployments))
     }
 
-    data_provider.GetDeployment(registration, deployment_id, reply_with) -> {
-      let result =
-        list.find(state.deployments, fn(deployment) {
-          deployment.registration_id == registration.id
-          && deployment.id == deployment_id
+    data_provider.GetDeployment(registration_id, deployment_id, reply_with) -> {
+      let record =
+        tables.get_by(state.deployments, fn(deployment) {
+          deployment.registration_id == registration_id
+          && deployment.deployment_id == deployment_id
         })
 
-      actor.send(reply_with, result)
+      actor.send(reply_with, record)
 
       actor.continue(state)
     }
@@ -112,7 +135,13 @@ pub fn start() -> Result(DataProvider, StartError) {
   let init = fn() {
     let self = process.new_subject()
 
-    let state = State(jwks: [], nonces: [], registrations: [], deployments: [])
+    let state =
+      State(
+        jwks: [],
+        nonces: [],
+        registrations: tables.new(),
+        deployments: tables.new(),
+      )
 
     let selector = process.selecting(process.new_selector(), self, identity)
 

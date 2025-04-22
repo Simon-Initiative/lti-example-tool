@@ -27,7 +27,14 @@ pub fn handle_request(req: Request, app: AppContext) -> Response {
     // The `id` segment is bound to a variable and passed to the handler.
     ["platforms", id] -> show_platform(req, app, id)
 
-    ["auth", "login"] -> lti_controller.oidc_login(req, app)
+    ["login"] -> lti_controller.oidc_login(req, app)
+    ["keys"] -> lti_controller.jwks(req, app)
+
+    ["launch"] -> launch(req)
+
+    // TODO: REMOVE
+    ["lti", "login"] -> lti_controller.oidc_login(req, app)
+    ["lti", "launch"] -> launch(req)
 
     // This matches all other paths.
     _ -> wisp.not_found()
@@ -45,6 +52,17 @@ fn home(req: Request) -> Response {
       <> "\n"
       <> "This is an example web application that demonstrates how to build an LTI tool.",
     )
+
+  wisp.ok()
+  |> wisp.html_body(html)
+}
+
+fn launch(req: Request) -> Response {
+  // The launch page can only be accessed via GET requests, so this middleware is
+  // used to return a 405: Method Not Allowed response for all other methods.
+  // use <- wisp.require_method(req, Get)
+
+  let html = string_tree.from_string("LTI Tool Demo" <> "\n" <> "Launch")
 
   wisp.ok()
   |> wisp.html_body(html)

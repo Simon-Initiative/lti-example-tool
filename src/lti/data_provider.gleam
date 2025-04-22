@@ -1,5 +1,4 @@
 import gleam/erlang/process.{type Subject}
-import gleam/otp/actor
 import lti/deployment.{type Deployment}
 import lti/jwk.{type Jwk}
 import lti/nonce.{type Nonce}
@@ -19,25 +18,31 @@ pub type DataProviderMessage {
   GetActiveJwk(reply_with: Subject(Result(Jwk, Nil)))
   GetAllJwks(reply_with: Subject(List(Jwk)))
   CreateJwk(jwk: Jwk)
-  CreateNonce(nonce: Nonce)
+  CreateNonce(reply_with: Subject(Result(Nonce, Nil)))
   GetNonce(value: String, reply_with: Subject(Result(Nonce, Nil)))
   CleanupExpiredNonces
-  CreateRegistration(registration: Registration)
+  CreateRegistration(
+    registration: Registration,
+    reply_with: Subject(Result(#(Int, Registration), Nil)),
+  )
   GetRegistration(
     issuer: String,
     client_id: String,
-    reply_with: Subject(Result(Registration, Nil)),
+    reply_with: Subject(Result(#(Int, Registration), Nil)),
   )
-  CreateDeployment(deployment: Deployment)
+  CreateDeployment(
+    deployment: Deployment,
+    reply_with: Subject(Result(#(Int, Deployment), Nil)),
+  )
   GetDeployment(
-    registration: Registration,
+    registration_id: Int,
     deployment_id: String,
-    reply_with: Subject(Result(Deployment, Nil)),
+    reply_with: Subject(Result(#(Int, Deployment), Nil)),
   )
 }
 
 pub fn cleanup(provider) {
-  actor.send(provider, Shutdown)
+  process.send(provider, Shutdown)
 }
 
 pub fn get_active_jwk(provider) {
@@ -49,11 +54,11 @@ pub fn get_all_jwks(provider) {
 }
 
 pub fn create_jwk(provider, jwk) {
-  actor.send(provider, CreateJwk(jwk))
+  process.send(provider, CreateJwk(jwk))
 }
 
-pub fn create_nonce(provider, nonce) {
-  actor.send(provider, CreateNonce(nonce))
+pub fn create_nonce(provider) {
+  process.call(provider, CreateNonce, call_timeout)
 }
 
 pub fn get_nonce(provider, value) {
@@ -61,11 +66,11 @@ pub fn get_nonce(provider, value) {
 }
 
 pub fn cleanup_expired_nonces(provider) {
-  actor.send(provider, CleanupExpiredNonces)
+  process.send(provider, CleanupExpiredNonces)
 }
 
 pub fn create_registration(provider, registration) {
-  actor.send(provider, CreateRegistration(registration))
+  process.call(provider, CreateRegistration(registration, _), call_timeout)
 }
 
 pub fn get_registration(provider, issuer, client_id) {
@@ -73,7 +78,7 @@ pub fn get_registration(provider, issuer, client_id) {
 }
 
 pub fn create_deployment(provider, deployment) {
-  actor.send(provider, CreateDeployment(deployment))
+  process.call(provider, CreateDeployment(deployment, _), call_timeout)
 }
 
 pub fn get_deployment(provider, registration, deployment_id) {

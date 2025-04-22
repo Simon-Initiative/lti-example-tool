@@ -3,13 +3,18 @@ import gleam/result
 import gleam/uri.{query_to_string}
 import ids/uuid
 import lti/data_provider.{type DataProvider}
+import lti/providers/memory_provider/tables
 import lti/registration.{type Registration}
+import lti_tool_demo/utils/common.{try_with}
 
 pub fn validate_oidc_login(
   provider: DataProvider,
   params: Dict(String, String),
 ) -> Result(#(String, String), String) {
   use _issuer <- result.try(validate_issuer_exists(params))
+  use target_link_uri <- try_with(dict.get(params, "target_link_uri"), fn(_) {
+    Error("Missing target_link_uri")
+  })
   use login_hint <- result.try(validate_login_hint_exists(params))
   use registration <- result.try(result.replace_error(
     validate_registration(provider, params),
@@ -18,16 +23,17 @@ pub fn validate_oidc_login(
   use client_id <- result.try(validate_client_id_exists(params))
 
   let assert Ok(state) = uuid.generate_v4()
-  let assert Ok(nonce) = uuid.generate_v4()
+  let assert Ok(nonce) = data_provider.create_nonce(provider)
 
   let query_params = [
-    #("client_id", client_id),
     #("scope", "openid"),
     #("response_type", "id_token"),
     #("response_mode", "form_post"),
     #("prompt", "none"),
+    #("client_id", client_id),
+    #("redirect_uri", target_link_uri),
     #("state", state),
-    #("nonce", nonce),
+    #("nonce", nonce.nonce),
     #("login_hint", login_hint),
   ]
 
@@ -46,7 +52,7 @@ pub fn validate_oidc_login(
   }
 
   let redirect_url =
-    registration.auth_login_url <> "?" <> query_to_string(query_params)
+    registration.auth_endpoint <> "?" <> query_to_string(query_params)
 
   Ok(#(state, redirect_url))
 }
@@ -78,6 +84,7 @@ fn validate_registration(
   // use lti_deployment_id <- result.try(dict.get(params, "lti_deployment_id"))
 
   data_provider.get_registration(provider, issuer, client_id)
+  |> result.map(tables.value)
 }
 
 fn validate_client_id_exists(
