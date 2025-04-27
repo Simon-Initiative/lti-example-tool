@@ -9,10 +9,9 @@ import gleam/json
 import gleam/list
 import gleam/result
 import gleam/uri.{query_to_string}
-import gwt
 import ids/uuid
 import lti/data_provider.{type DataProvider}
-import lti/jose.{JoseJwt}
+import lti/jose.{JoseJws, JoseJwt}
 import lti/providers/memory_provider/tables
 import lti/registration.{type Registration}
 import lti_tool_demo/utils/common.{try_with}
@@ -118,9 +117,7 @@ pub fn validate_launch(
     dict.get(params, "id_token") |> result.replace_error("Missing id_token"),
   )
 
-  echo id_token
-
-  // TODO: RE-ENABLE
+  // TODO: re-enable and fix session state validation
   // use _state <- result.try(validate_oidc_state(params, session_state))
   use registration <- result.try(validate_launch_registration(
     provider,
@@ -175,21 +172,27 @@ fn peek_issuer_client_id(id_token, cb) {
 }
 
 fn peek_claim(jwt_string: String, claim: String, decoder: Decoder(a)) {
-  use unverified_token <- result.try(
-    gwt.from_string(jwt_string) |> result.replace_error("Invalid JWT"),
-  )
-
-  gwt.get_payload_claim(unverified_token, claim, decoder)
-  |> result.replace_error("Missing claim")
+  case jose.peek(jwt_string) {
+    JoseJwt(claims: claims) -> {
+      case dict.get(claims, claim) {
+        Ok(value) ->
+          decode.run(value, decoder) |> result.replace_error("Invalid claim")
+        Error(_) -> Error("Missing claim")
+      }
+    }
+  }
 }
 
 fn peek_header_claim(jwt_string, header: String, decoder: Decoder(a)) {
-  use unverified_token <- result.try(
-    gwt.from_string(jwt_string) |> result.replace_error("Invalid JWT"),
-  )
-
-  gwt.get_header_claim(unverified_token, header, decode.run(_, decoder))
-  |> result.replace_error("Missing header")
+  case jose.peek_protected(jwt_string) {
+    JoseJws(headers: headers, ..) -> {
+      case dict.get(headers, header) {
+        Ok(value) ->
+          decode.run(value, decoder) |> result.replace_error("Invalid header")
+        Error(_) -> Error("Missing header")
+      }
+    }
+  }
 }
 
 fn validate_id_token(id_token, keyset_url) {
