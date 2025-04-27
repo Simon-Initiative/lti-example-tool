@@ -4,14 +4,17 @@ import gleam/dynamic.{type Dynamic}
 pub type JoseJwk =
   Dict(String, String)
 
+pub type Claims =
+  Dict(String, Dynamic)
+
 pub type JoseJwt {
-  JoseJwt(claims: Dict(String, Dynamic))
+  JoseJwt(claims: Claims)
 }
 
 pub type JoseJwsAlg
 
 pub type JoseJws {
-  JoseJws(alg: JoseJwsAlg, payload: String, headers: Dict(String, Dynamic))
+  JoseJws(alg: JoseJwsAlg, payload: String, headers: Claims)
 }
 
 @external(erlang, "jose_jwt", "verify")

@@ -66,12 +66,15 @@ fn handle_message(
       actor.continue(State(..state, nonces: [nonce, ..state.nonces]))
     }
 
-    data_provider.GetNonce(value, reply_with) -> {
+    data_provider.ValidateNonce(value, reply_with) -> {
       let result = list.find(state.nonces, fn(nonce) { nonce.nonce == value })
 
       actor.send(reply_with, result)
 
-      actor.continue(state)
+      // remove the nonce from the list so it can't be reused
+      let nonces = list.filter(state.nonces, fn(nonce) { nonce.nonce != value })
+
+      actor.continue(State(..state, nonces: nonces))
     }
 
     data_provider.CleanupExpiredNonces -> {

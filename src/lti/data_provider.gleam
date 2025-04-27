@@ -19,7 +19,7 @@ pub type DataProviderMessage {
   GetAllJwks(reply_with: Subject(List(Jwk)))
   CreateJwk(jwk: Jwk)
   CreateNonce(reply_with: Subject(Result(Nonce, Nil)))
-  GetNonce(value: String, reply_with: Subject(Result(Nonce, Nil)))
+  ValidateNonce(value: String, reply_with: Subject(Result(Nonce, Nil)))
   CleanupExpiredNonces
   CreateRegistration(
     registration: Registration,
@@ -61,8 +61,8 @@ pub fn create_nonce(provider) {
   process.call(provider, CreateNonce, call_timeout)
 }
 
-pub fn get_nonce(provider, value) {
-  process.call(provider, GetNonce(value, _), call_timeout)
+pub fn validate_nonce(provider, value) {
+  process.call(provider, ValidateNonce(value, _), call_timeout)
 }
 
 pub fn cleanup_expired_nonces(provider) {

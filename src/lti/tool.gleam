@@ -1,4 +1,6 @@
-import gleam/bit_array
+import birl
+import birl/duration
+import gleam/bool
 import gleam/dict.{type Dict}
 import gleam/dynamic.{type Dynamic}
 import gleam/dynamic/decode.{type Decoder}
@@ -7,11 +9,13 @@ import gleam/http/response.{Response}
 import gleam/httpc
 import gleam/json
 import gleam/list
+import gleam/order.{Gt, Lt}
+import gleam/pair
 import gleam/result
 import gleam/uri.{query_to_string}
 import ids/uuid
 import lti/data_provider.{type DataProvider}
-import lti/jose.{JoseJws, JoseJwt}
+import lti/jose.{type Claims, JoseJws, JoseJwt}
 import lti/providers/memory_provider/tables
 import lti/registration.{type Registration}
 import lti_tool_demo/utils/common.{try_with}
@@ -22,7 +26,7 @@ pub fn oidc_login(
   provider: DataProvider,
   params: Dict(String, String),
 ) -> Result(#(String, String), String) {
-  use _issuer <- result.try(validate_issuer_exists(params))
+  use _params <- result.try(validate_issuer_exists(params))
   use target_link_uri <- try_with(dict.get(params, "target_link_uri"), fn(_) {
     Error("Missing target_link_uri")
   })
@@ -70,9 +74,9 @@ pub fn oidc_login(
 
 fn validate_issuer_exists(
   params: Dict(String, String),
-) -> Result(String, String) {
+) -> Result(Dict(String, String), String) {
   case dict.get(params, "iss") {
-    Ok(issuer) -> Ok(issuer)
+    Ok(_issuer) -> Ok(params)
     Error(_) -> Error("Missing issuer")
   }
 }
@@ -92,7 +96,6 @@ fn validate_registration(
 ) -> Result(Registration, Nil) {
   use issuer <- result.try(dict.get(params, "iss"))
   use client_id <- result.try(dict.get(params, "client_id"))
-  // use lti_deployment_id <- result.try(dict.get(params, "lti_deployment_id"))
 
   data_provider.get_registration(provider, issuer, client_id)
   |> result.map(tables.value)
@@ -119,14 +122,21 @@ pub fn validate_launch(
 
   // TODO: re-enable and fix session state validation
   // use _state <- result.try(validate_oidc_state(params, session_state))
-  use registration <- result.try(validate_launch_registration(
-    provider,
-    id_token,
-  ))
+  use #(registration_id, registration) <- result.try(
+    validate_launch_registration(provider, id_token),
+  )
   use jwt_body <- result.try(validate_id_token(
     id_token,
     registration.keyset_url,
   ))
+  use _jwt_body <- result.try(validate_deployment(
+    provider,
+    registration_id,
+    jwt_body,
+  ))
+  use _jwt_body <- result.try(validate_timestamps(jwt_body))
+  use _jwt_body <- result.try(validate_nonce(provider, jwt_body))
+  use _jwt_body <- result.try(validate_message(jwt_body))
 
   // TODO
 
@@ -148,27 +158,18 @@ fn validate_oidc_state(params, session_state) {
 fn validate_launch_registration(
   provider: DataProvider,
   id_token: String,
-) -> Result(Registration, String) {
-  use issuer, client_id <- peek_issuer_client_id(id_token)
+) -> Result(#(Int, Registration), String) {
+  use #(issuer, client_id) <- result.try(peek_issuer_client_id(id_token))
 
-  case data_provider.get_registration(provider, issuer, client_id) {
-    Ok(#(_, registration)) -> Ok(registration)
-    Error(_) -> {
-      logger.error_meta(
-        "Failed to get registration for issuer and client_id",
-        #(issuer, client_id),
-      )
-
-      Error("Invalid registration")
-    }
-  }
+  data_provider.get_registration(provider, issuer, client_id)
+  |> result.replace_error("Invalid registration")
 }
 
-fn peek_issuer_client_id(id_token, cb) {
+fn peek_issuer_client_id(id_token) {
   use issuer <- result.try(peek_claim(id_token, "iss", decode.string))
   use client_id <- result.try(peek_claim(id_token, "aud", decode.string))
 
-  cb(issuer, client_id)
+  Ok(#(issuer, client_id))
 }
 
 fn peek_claim(jwt_string: String, claim: String, decoder: Decoder(a)) {
@@ -262,4 +263,127 @@ fn fetch_jwk(keyset_url, kid) {
       Error("Failed to fetch keyset")
     }
   }
+}
+
+fn validate_deployment(
+  provider: DataProvider,
+  registration_id: Int,
+  claims: Claims,
+) {
+  use deployment_id <- result.try(get_claim(
+    claims,
+    "https://purl.imsglobal.org/spec/lti/claim/deployment_id",
+    decode.string,
+  ))
+
+  case data_provider.get_deployment(provider, registration_id, deployment_id) {
+    Ok(#(_, deployment)) -> Ok(deployment)
+
+    Error(_) -> {
+      logger.error_meta(
+        "Failed to get deployment for registration_id and deployment_id",
+        #(registration_id, deployment_id),
+      )
+
+      Error("Invalid deployment")
+    }
+  }
+}
+
+fn validate_timestamps(claims: Claims) {
+  use exp <- result.try(
+    get_claim(claims, "exp", decode.int)
+    |> result.map(birl.from_unix),
+  )
+  use iat <- result.try(
+    get_claim(claims, "iat", decode.int) |> result.map(birl.from_unix),
+  )
+
+  let now = birl.now()
+  let buffer_sec = 2
+  let a_few_seconds_ago = birl.subtract(now, duration.seconds(buffer_sec))
+  let a_few_seconds_later = birl.add(now, duration.seconds(buffer_sec))
+
+  use <- bool.guard(
+    birl.compare(exp, a_few_seconds_ago) == Lt,
+    Error("JWT exp is expired"),
+  )
+  use <- bool.guard(
+    birl.compare(iat, a_few_seconds_later) == Gt,
+    Error("JWT iat is in the future"),
+  )
+
+  Ok(claims)
+}
+
+fn validate_nonce(provider: DataProvider, claims: Claims) {
+  use nonce <- result.try(get_claim(claims, "nonce", decode.string))
+
+  case data_provider.validate_nonce(provider, nonce) {
+    Ok(_) -> Ok(claims)
+
+    Error(_) -> {
+      logger.error_meta("Failed to validate nonce", claims)
+
+      Error("Invalid nonce")
+    }
+  }
+}
+
+fn validate_lti_resource_link_request_message(
+  claims: Claims,
+) -> Result(Dict(String, Dynamic), String) {
+  case
+    get_claim(
+      claims,
+      "https://purl.imsglobal.org/spec/lti/claim/message_type",
+      decode.string,
+    )
+  {
+    Ok("LtiResourceLinkRequest") -> Ok(claims)
+    _ -> {
+      logger.error_meta("Invalid message type", #(
+        claims,
+        "https://purl.imsglobal.org/spec/lti/claim/message_type",
+      ))
+
+      Error("Invalid message type")
+    }
+  }
+}
+
+const message_validators = [
+  #("LtiResourceLinkRequest", validate_lti_resource_link_request_message),
+]
+
+fn validate_message(claims: Claims) {
+  use message_type <- result.try(get_claim(
+    claims,
+    "https://purl.imsglobal.org/spec/lti/claim/message_type",
+    decode.string,
+  ))
+
+  use #(_, validator) <- result.try(
+    list.find(message_validators, fn(validator) { validator.0 == message_type })
+    |> result.replace_error(
+      "No validator found for message type " <> message_type,
+    ),
+  )
+
+  validator(claims)
+  |> result.replace_error("Invalid message type " <> message_type)
+}
+
+fn get_claim(
+  claims: Claims,
+  claim: String,
+  decoder: Decoder(a),
+) -> Result(a, String) {
+  dict.get(claims, claim)
+  |> result.map(fn(c) {
+    decode.run(c, decoder)
+    |> result.replace_error("Invalid claim " <> claim)
+  })
+  |> result.replace_error("Missing claim " <> claim)
+  |> result.flatten()
 }

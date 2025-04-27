@@ -14,8 +14,6 @@ import wisp.{type Request, type Response, redirect}
 pub fn oidc_login(req: Request, app: AppContext) -> Response {
   use params <- all_params(req)
 
-  echo params
-
   case tool.oidc_login(app.lti_data_provider, params) {
     Ok(#(state, redirect_url)) -> {
       // Set the state in the session
@@ -24,7 +22,14 @@ pub fn oidc_login(req: Request, app: AppContext) -> Response {
 
       redirect(to: redirect_url)
     }
-    Error(_) -> wisp.bad_request()
+    Error(e) ->
+      wisp.bad_request()
+      |> wisp.html_body(string_tree.from_string(
+        "<h1>LTI Tool Demo - OIDC Login Failed</h1>"
+        <> "<p>"
+        <> string.inspect(e)
+        <> "</p>",
+      ))
   }
 }
 
