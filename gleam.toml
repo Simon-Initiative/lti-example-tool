@@ -25,6 +25,10 @@ gleam_otp = ">= 0.14.1 and < 1.0.0"
 pog = ">= 3.2.0 and < 4.0.0"
 argv = ">= 1.0.2 and < 2.0.0"
 birl = ">= 1.8.0 and < 2.0.0"
+gwt = ">= 2.0.0 and < 3.0.0"
+gleam_httpc = ">= 4.1.0 and < 5.0.0"
+jose = ">= 1.11.10 and < 2.0.0"
+jason = ">= 1.4.4 and < 2.0.0"
 
 [dev-dependencies]
 gleeunit = ">= 1.0.0 and < 2.0.0"

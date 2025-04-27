@@ -30,11 +30,11 @@ pub fn handle_request(req: Request, app: AppContext) -> Response {
     ["login"] -> lti_controller.oidc_login(req, app)
     ["keys"] -> lti_controller.jwks(req, app)
 
-    ["launch"] -> launch(req)
+    ["launch"] -> lti_controller.validate_launch(req, app)
 
     // TODO: REMOVE
     ["lti", "login"] -> lti_controller.oidc_login(req, app)
-    ["lti", "launch"] -> launch(req)
+    ["lti", "launch"] -> lti_controller.validate_launch(req, app)
 
     // This matches all other paths.
     _ -> wisp.not_found()
@@ -52,17 +52,6 @@ fn home(req: Request) -> Response {
       <> "\n"
       <> "This is an example web application that demonstrates how to build an LTI tool.",
     )
-
-  wisp.ok()
-  |> wisp.html_body(html)
-}
-
-fn launch(req: Request) -> Response {
-  // The launch page can only be accessed via GET requests, so this middleware is
-  // used to return a 405: Method Not Allowed response for all other methods.
-  // use <- wisp.require_method(req, Get)
-
-  let html = string_tree.from_string("LTI Tool Demo" <> "\n" <> "Launch")
 
   wisp.ok()
   |> wisp.html_body(html)

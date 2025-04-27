@@ -7,7 +7,7 @@ import lti/providers/memory_provider
 import lti_tool_demo/app_context.{AppContext}
 import lti_tool_demo/database
 import lti_tool_demo/router
-import lti_tool_demo/session
+import lti_tool_demo/sessions
 import wisp/testing
 
 pub fn main() {
@@ -15,7 +15,7 @@ pub fn main() {
 }
 
 fn app_context() {
-  let assert Ok(session_config) = session.init()
+  let assert Ok(session_config) = sessions.init()
 
   let assert Ok(lti_data_provider) = memory_provider.start()
 

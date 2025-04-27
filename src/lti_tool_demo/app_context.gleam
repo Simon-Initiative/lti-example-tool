@@ -1,6 +1,6 @@
 import lti/data_provider.{type DataProvider}
 import lti_tool_demo/database.{type Database}
-import lti_tool_demo/session.{type SessionConfig}
+import lti_tool_demo/sessions.{type SessionConfig}
 
 pub type AppContext {
   AppContext(

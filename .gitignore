@@ -3,3 +3,4 @@
 /build
 erl_crash.dump
 platforms.yml
+.DS_Store

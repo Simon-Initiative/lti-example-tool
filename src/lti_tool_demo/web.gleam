@@ -7,7 +7,7 @@ import lti/providers/memory_provider
 import lti/registration.{Registration}
 import lti_tool_demo/app_context.{type AppContext, AppContext}
 import lti_tool_demo/database
-import lti_tool_demo/session
+import lti_tool_demo/sessions
 import wisp
 
 pub fn setup() -> AppContext {
@@ -16,7 +16,7 @@ pub fn setup() -> AppContext {
   let db = database.connect("lti_tool_demo")
 
   // Setup session_adapter
-  let assert Ok(session_config) = session.init()
+  let assert Ok(session_config) = sessions.init()
 
   let assert Ok(lti_data_provider) = memory_provider.start()
 
@@ -87,7 +87,7 @@ pub fn middleware(
   use req <- made_with_gleam(req)
   use req <- wisp.handle_head(req)
   use <- wisp.serve_static(req, under: "/static", from: ctx.static_directory)
-  use req <- session.middleware(req, ctx.session_config)
+  use req <- sessions.middleware(req, ctx.session_config)
 
   handle_request(req)
 }
