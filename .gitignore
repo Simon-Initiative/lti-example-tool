@@ -4,3 +4,5 @@
 erl_crash.dump
 seeds.yml
 .DS_Store
+node_modules
+priv/static

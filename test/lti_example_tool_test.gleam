@@ -20,6 +20,7 @@ fn app_context() {
   let assert Ok(lti_data_provider) = memory_provider.start()
 
   AppContext(
+    env: app_context.Test,
     port: 8080,
     secret_key_base: "secret_key_base",
     db: database.connect("lti_example_tool_test"),

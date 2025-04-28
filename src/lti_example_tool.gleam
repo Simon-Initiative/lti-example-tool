@@ -1,7 +1,7 @@
 import gleam/erlang/process
+import lti_example_tool/application
 import lti_example_tool/router
 import lti_example_tool/utils/logger
-import lti_example_tool/web
 import mist
 import wisp
 import wisp/wisp_mist
@@ -10,7 +10,7 @@ pub fn main() {
   logger.configure_backend()
   wisp.configure_logger()
 
-  let ctx = web.setup()
+  let ctx = application.setup()
 
   let assert Ok(_) =
     router.handle_request(_, ctx)

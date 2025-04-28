@@ -8,11 +8,14 @@ import lti/data_provider
 import lti/deployment.{Deployment}
 import lti/registration.{Registration}
 import lti_example_tool/app_context.{type AppContext}
+import lti_example_tool/html.{render_page} as _
+import lti_example_tool/html/buttons
+import lti_example_tool/html/components
+import lti_example_tool/html/forms
 import lti_example_tool/platforms
-import lti_example_tool/utils/common.{try_with}
-import lti_example_tool/utils/html.{render_page} as _
-import lustre/attribute
-import lustre/element/html.{div, form, h1, input, label, text}
+import lti_example_tool/utils/common.{try_with} as _
+import lustre/attribute.{action, class, method, type_}
+import lustre/element/html.{div, form, h1, text}
 import wisp.{type Request, type Response}
 
 pub fn resources(req: Request, app: AppContext) -> Response {
@@ -42,41 +45,18 @@ pub fn index(app: AppContext) -> Response {
 
 pub fn new() -> Response {
   render_page("Create Platform", [
-    h1([], [text("Create Platform")]),
-    form([attribute.method("post"), attribute.action("/platforms")], [
-      div([], [
-        label([], [
-          text("Name: "),
-          input([attribute.type_("text"), attribute.name("name")]),
+    components.card([class("max-w-sm mx-auto")], [
+      form([method("post"), action("/platforms")], [
+        div([class("flex flex-col")], [
+          forms.labeled_input("Name", "name"),
+          forms.labeled_input("Issuer", "issuer"),
+          forms.labeled_input("Client ID", "client_id"),
+          forms.labeled_input("Auth Endpoint", "auth_endpoint"),
+          forms.labeled_input("Access Token Endpoint", "access_token_endpoint"),
+          forms.labeled_input("Keyset URL", "keyset_url"),
+          forms.labeled_input("Deployment ID", "deployment_id"),
+          buttons.primary([class("my-8"), type_("submit")], [text("Create")]),
         ]),
-        label([], [
-          text("Issuer: "),
-          input([attribute.type_("text"), attribute.name("issuer")]),
-        ]),
-        label([], [
-          text("Client ID: "),
-          input([attribute.type_("text"), attribute.name("client_id")]),
-        ]),
-        label([], [
-          text("Auth Endpoint: "),
-          input([attribute.type_("text"), attribute.name("auth_endpoint")]),
-        ]),
-        label([], [
-          text("Access Token Endpoint: "),
-          input([
-            attribute.type_("text"),
-            attribute.name("access_token_endpoint"),
-          ]),
-        ]),
-        label([], [
-          text("Keyset URL: "),
-          input([attribute.type_("text"), attribute.name("keyset_url")]),
-        ]),
-        label([], [
-          text("Deployment ID: "),
-          input([attribute.type_("text"), attribute.name("deployment_id")]),
-        ]),
-        input([attribute.type_("submit"), attribute.value("Submit")]),
       ]),
     ]),
   ])
