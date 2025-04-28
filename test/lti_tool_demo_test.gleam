@@ -3,7 +3,10 @@ import gleam/result
 import gleam/string
 import gleeunit
 import gleeunit/should
+import lti/data_provider
+import lti/deployment.{Deployment}
 import lti/providers/memory_provider
+import lti/registration.{Registration}
 import lti_tool_demo/app_context.{AppContext}
 import lti_tool_demo/database
 import lti_tool_demo/router
@@ -40,6 +43,51 @@ pub fn get_home_page_test() {
   |> list.contains(#("made-with", "Gleam"))
   |> should.be_true
 
+  response
+  |> testing.string_body
+  |> should.equal(
+    "LTI Tool Demo\nThis is an example web application that demonstrates how to build an LTI tool.",
+  )
+}
+
+pub fn login_test() {
+  let ctx = app_context()
+  let AppContext(lti_data_provider: lti_data_provider, ..) = ctx
+
+  let assert Ok(#(registration_id, registration)) =
+    data_provider.create_registration(
+      lti_data_provider,
+      Registration(
+        name: "Example Registration",
+        issuer: "http://example.com",
+        client_id: "SOME_CLIENT_ID",
+        auth_endpoint: "http://example.com/lti/authorize_redirect",
+        access_token_endpoint: "http://example.com/auth/token",
+        keyset_url: "http://example.com/.well-known/jwks.json",
+      ),
+    )
+
+  let assert Ok(_deployment) =
+    data_provider.create_deployment(
+      lti_data_provider,
+      Deployment(
+        deployment_id: "some-deployment-id",
+        registration_id: registration_id,
+      ),
+    )
+
+  let form_data = [
+    #("client_id", registration.client_id),
+    #("iss", registration.issuer),
+    #("login_hint", "d9d4526d-3395-4f16-ba7f-242a9f1b9d20"),
+    #("target_link_uri", "http://example.com/launch"),
+  ]
+  let request = testing.post_form("/login", [], form_data)
+  let response = router.handle_request(request, app_context())
+
+  response.status
+  |> should.equal(303)
+
   response.headers
   |> list.find(fn(header) {
     case header {
@@ -51,11 +99,11 @@ pub fn get_home_page_test() {
     case header {
       #("set-cookie", cookie) -> {
         {
-          string.contains(cookie, "SESSION_COOKIE=")
-          // && string.contains(
-          //   cookie,
-          //   "Max-Age=3599; Path=/; Secure; HttpOnly; SameSite=Lax",
-          // )
+          string.contains(cookie, "state=")
+          && string.contains(
+            cookie,
+            "Max-Age=3599; Path=/; Secure; HttpOnly; SameSite=None",
+          )
         }
         |> should.be_true
       }
@@ -63,12 +111,6 @@ pub fn get_home_page_test() {
     }
   })
   |> should.be_ok
-
-  response
-  |> testing.string_body
-  |> should.equal(
-    "LTI Tool Demo\nThis is an example web application that demonstrates how to build an LTI tool.",
-  )
 }
 
 pub fn post_home_page_test() {

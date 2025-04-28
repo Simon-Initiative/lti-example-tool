@@ -10,7 +10,6 @@ import gleam/httpc
 import gleam/json
 import gleam/list
 import gleam/order.{Gt, Lt}
-import gleam/pair
 import gleam/result
 import gleam/uri.{query_to_string}
 import ids/uuid
@@ -31,10 +30,10 @@ pub fn oidc_login(
     Error("Missing target_link_uri")
   })
   use login_hint <- result.try(validate_login_hint_exists(params))
-  use registration <- result.try(result.replace_error(
-    validate_registration(provider, params),
-    "Invalid registration",
-  ))
+  use registration <- result.try(
+    validate_registration(provider, params)
+    |> result.replace_error("Invalid registration"),
+  )
   use client_id <- result.try(validate_client_id_exists(params))
 
   let assert Ok(state) = uuid.generate_v4()
@@ -54,9 +53,6 @@ pub fn oidc_login(
 
   // pass back LTI message hint if given
   let query_params = case dict.get(params, "lti_message_hint") {
-    Ok("") ->
-      // if the hint is empty, we don't need to pass it back
-      query_params
     Ok(lti_message_hint) -> [
       #("lti_message_hint", lti_message_hint),
       ..query_params
@@ -119,8 +115,6 @@ pub fn validate_launch(
   use id_token <- result.try(
     dict.get(params, "id_token") |> result.replace_error("Missing id_token"),
   )
-
-  // TODO: re-enable and fix session state validation
   use _state <- result.try(validate_oidc_state(params, session_state))
   use #(registration_id, registration) <- result.try(
     validate_launch_registration(provider, id_token),
@@ -137,8 +131,6 @@ pub fn validate_launch(
   use _jwt_body <- result.try(validate_timestamps(jwt_body))
   use _jwt_body <- result.try(validate_nonce(provider, jwt_body))
   use _jwt_body <- result.try(validate_message(jwt_body))
-
-  // TODO
 
   Ok(jwt_body)
 }
