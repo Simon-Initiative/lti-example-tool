@@ -4,6 +4,7 @@ import gleam/string
 import gleam/string_tree
 import lti_example_tool/app_context.{type AppContext}
 import lti_example_tool/controllers/lti_controller
+import lti_example_tool/controllers/platform_controller
 import lti_example_tool/platforms
 import lti_example_tool/utils/common.{try_with}
 import lti_example_tool/web
@@ -21,11 +22,7 @@ pub fn handle_request(req: Request, app: AppContext) -> Response {
     [] -> home(req)
 
     // This matches `/comments`.
-    ["platforms"] -> platforms(req, app)
-
-    // This matches `/comments/:id`.
-    // The `id` segment is bound to a variable and passed to the handler.
-    ["platforms", id] -> show_platform(req, app, id)
+    ["platforms", ..] -> platform_controller.resources(req, app)
 
     ["login"] -> lti_controller.oidc_login(req, app)
 
@@ -51,47 +48,6 @@ fn home(req: Request) -> Response {
       <> "\n"
       <> "This is an example web application that demonstrates how to build an LTI tool.",
     )
-
-  wisp.ok()
-  |> wisp.html_body(html)
-}
-
-fn platforms(req: Request, app: AppContext) -> Response {
-  // This handler for `/platforms` can respond to both GET and POST requests,
-  // so we pattern match on the method here.
-  case req.method {
-    Get -> list_platforms(app)
-    Post -> create_platform(req)
-    _ -> wisp.method_not_allowed([Get, Post])
-  }
-}
-
-fn list_platforms(app: AppContext) -> Response {
-  let assert Ok(platforms) = platforms.all(app.db)
-
-  let html =
-    string_tree.from_string("Platforms" <> "\n" <> string.inspect(platforms))
-
-  wisp.ok()
-  |> wisp.html_body(html)
-}
-
-fn create_platform(_req: Request) -> Response {
-  todo
-}
-
-fn show_platform(req: Request, app: AppContext, id: String) -> Response {
-  use <- wisp.require_method(req, Get)
-
-  use id <- try_with(int.parse(id), or_else: fn(_) {
-    wisp.log_error("Invalid platform ID")
-    wisp.bad_request()
-  })
-
-  let assert Ok(platforms) = platforms.get(app.db, id)
-
-  let html =
-    string_tree.from_string("Platforms" <> "\n" <> string.inspect(platforms))
 
   wisp.ok()
   |> wisp.html_body(html)

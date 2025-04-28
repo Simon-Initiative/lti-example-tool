@@ -1,12 +1,10 @@
 import envoy
 import gleam/int
 import gleam/result
-import lti/data_provider
-import lti/deployment.{Deployment}
 import lti/providers/memory_provider
-import lti/registration.{Registration}
 import lti_example_tool/app_context.{type AppContext, AppContext}
 import lti_example_tool/database
+import lti_example_tool/seeds
 import lti_example_tool/utils/logger
 import wisp
 
@@ -17,51 +15,7 @@ pub fn setup() -> AppContext {
 
   let assert Ok(lti_data_provider) = memory_provider.start()
 
-  // TODO: REMOVE
-  // Create a temporary registration and deployment
-  let assert Ok(#(registration_id, _registration)) =
-    data_provider.create_registration(
-      lti_data_provider,
-      Registration(
-        name: "Example Registration",
-        issuer: "http://localhost",
-        client_id: "EXAMPLE_CLIENT_ID",
-        auth_endpoint: "http://localhost/lti/authorize_redirect",
-        access_token_endpoint: "http://localhost/auth/token",
-        keyset_url: "http://localhost/.well-known/jwks.json",
-      ),
-    )
-
-  let assert Ok(_deployment) =
-    data_provider.create_deployment(
-      lti_data_provider,
-      Deployment(
-        deployment_id: "7ad727c9-3f14-4ffc-91e5-8e1f0df27359",
-        registration_id: registration_id,
-      ),
-    )
-
-  let assert Ok(#(registration_id, _registration)) =
-    data_provider.create_registration(
-      lti_data_provider,
-      Registration(
-        name: "Canvas Registration",
-        issuer: "https://canvas.oli.cmu.edu",
-        client_id: "10000000000062",
-        auth_endpoint: "https://canvas.oli.cmu.edu/api/lti/authorize_redirect",
-        access_token_endpoint: "https://canvas.oli.cmu.edu/login/oauth2/token",
-        keyset_url: "https://canvas.oli.cmu.edu/api/lti/security/jwks",
-      ),
-    )
-
-  let assert Ok(_deployment) =
-    data_provider.create_deployment(
-      lti_data_provider,
-      Deployment(
-        deployment_id: "130:8865aa05b4b79b64a91a86042e43af5ea8ae79eb",
-        registration_id: registration_id,
-      ),
-    )
+  let assert Ok(_) = seeds.load(lti_data_provider)
 
   AppContext(
     port: load_port(),

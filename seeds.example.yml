@@ -1,0 +1,9 @@
+# Example seeds. Copy to seeds.yml and modify
+platforms:
+  - name: "Platform Name"
+    issuer: "https://platform.example.edu"
+    client_id: "EXAMPLE_CLIENT_ID"
+    auth_endpoint: "https://platform.example.edu/lti/authorize"
+    access_token_endpoint: "https://platform.example.edu/auth/token"
+    keyset_url: "https://platform.example.edu/.well-known/jwks.json"
+    deployment_id: "some-deployment-id"
