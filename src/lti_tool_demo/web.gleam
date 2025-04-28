@@ -7,16 +7,12 @@ import lti/providers/memory_provider
 import lti/registration.{Registration}
 import lti_tool_demo/app_context.{type AppContext, AppContext}
 import lti_tool_demo/database
-import lti_tool_demo/sessions
 import wisp
 
 pub fn setup() -> AppContext {
   let secret_key_base = load_secret_key_base()
 
   let db = database.connect("lti_tool_demo")
-
-  // Setup session_adapter
-  let assert Ok(session_config) = sessions.init()
 
   let assert Ok(lti_data_provider) = memory_provider.start()
 
@@ -71,7 +67,6 @@ pub fn setup() -> AppContext {
     secret_key_base: secret_key_base,
     db: db,
     static_directory: static_directory(),
-    session_config: session_config,
     lti_data_provider: lti_data_provider,
   )
 }
@@ -87,7 +82,6 @@ pub fn middleware(
   use req <- made_with_gleam(req)
   use req <- wisp.handle_head(req)
   use <- wisp.serve_static(req, under: "/static", from: ctx.static_directory)
-  use req <- sessions.middleware(req, ctx.session_config)
 
   handle_request(req)
 }

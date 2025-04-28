@@ -121,7 +121,7 @@ pub fn validate_launch(
   )
 
   // TODO: re-enable and fix session state validation
-  // use _state <- result.try(validate_oidc_state(params, session_state))
+  use _state <- result.try(validate_oidc_state(params, session_state))
   use #(registration_id, registration) <- result.try(
     validate_launch_registration(provider, id_token),
   )

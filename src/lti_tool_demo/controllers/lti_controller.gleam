@@ -1,13 +1,13 @@
 import gleam/dict.{type Dict}
-import gleam/dynamic/decode
+import gleam/http
+import gleam/http/cookie
 import gleam/list
-import gleam/result
+import gleam/option.{Some}
 import gleam/string
 import gleam/string_tree
 import lti/tool
 import lti_tool_demo/app_context.{type AppContext}
-import lti_tool_demo/sessions.{session}
-import lti_tool_demo/utils/common.{with}
+import lti_tool_demo/cookies.{require_cookie, set_cookie}
 import lti_tool_demo/utils/logger
 import wisp.{type Request, type Response, redirect}
 
@@ -16,9 +16,15 @@ pub fn oidc_login(req: Request, app: AppContext) -> Response {
 
   case tool.oidc_login(app.lti_data_provider, params) {
     Ok(#(state, redirect_url)) -> {
-      // Set the state in the session
-      let assert Ok(_) =
-        sessions.put_session(req, app.session_config, "state", state)
+      use <- set_cookie(
+        "state",
+        state,
+        cookie.Attributes(
+          ..cookie.defaults(http.Https),
+          same_site: Some(cookie.None),
+          max_age: option.Some(60 * 60 * 24),
+        ),
+      )
 
       redirect(to: redirect_url)
     }
@@ -42,9 +48,7 @@ fn all_params(
 
   // Combine query and body parameters into a single dictionary
   let query_params = wisp.get_query(req) |> dict.from_list()
-  // let body_params =
-  //   decode.run(json, decode.dict(decode.string, decode.string))
-  //   |> result.unwrap(dict.new())
+
   let body_params =
     formdata.values
     |> list.fold(dict.new(), fn(acc, field) {
@@ -59,17 +63,12 @@ fn all_params(
 
 pub fn validate_launch(req: Request, app: AppContext) -> Response {
   use params <- all_params(req)
+  use session_state <- require_cookie(req, "state", or_else: fn() {
+    logger.error("Required 'state' cookie not found")
 
-  // use session_state <- session(req, app.session_config, "state")
-  // use session_state <- with(session_state, fn() {
-  //   logger.error("Session state not found")
+    render_error("Required 'state' cookie not found")
+  })
 
-  //   wisp.bad_request()
-  // })
-  // TODO: FIX
-  let session_state = ""
-
-  // Validate the launch
   case tool.validate_launch(app.lti_data_provider, params, session_state) {
     Ok(claims) -> {
       let html =
@@ -86,13 +85,7 @@ pub fn validate_launch(req: Request, app: AppContext) -> Response {
     Error(e) -> {
       logger.error_meta("Invalid launch", e)
 
-      wisp.bad_request()
-      |> wisp.html_body(string_tree.from_string(
-        "<h1>LTI Tool Demo - Launch Failed</h1>"
-        <> "<p>"
-        <> string.inspect(e)
-        <> "</p>",
-      ))
+      render_error("Invalid launch: " <> string.inspect(e))
     }
   }
 }
@@ -110,4 +103,11 @@ pub fn jwks(req: Request, app: AppContext) -> Response {
   // |> wisp.json_body(json)
 
   todo
+}
+
+fn render_error(reason: String) -> Response {
+  wisp.bad_request()
+  |> wisp.html_body(string_tree.from_string(
+    "<h1>Something went wrong</h1>" <> "<p>Reason: " <> reason <> "</p>",
+  ))
 }

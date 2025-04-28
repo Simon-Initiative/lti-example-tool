@@ -13,7 +13,8 @@ pub fn main() {
   let ctx = web.setup()
 
   let assert Ok(_) =
-    wisp_mist.handler(router.handle_request(_, ctx), ctx.secret_key_base)
+    router.handle_request(_, ctx)
+    |> wisp_mist.handler(ctx.secret_key_base)
     |> mist.new
     |> mist.port(ctx.port)
     |> mist.start_http
