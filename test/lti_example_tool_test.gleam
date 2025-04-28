@@ -7,9 +7,9 @@ import lti/data_provider
 import lti/deployment.{Deployment}
 import lti/providers/memory_provider
 import lti/registration.{Registration}
-import lti_tool_demo/app_context.{AppContext}
-import lti_tool_demo/database
-import lti_tool_demo/router
+import lti_example_tool/app_context.{AppContext}
+import lti_example_tool/database
+import lti_example_tool/router
 import wisp/testing
 
 pub fn main() {
@@ -22,7 +22,7 @@ fn app_context() {
   AppContext(
     port: 8080,
     secret_key_base: "secret_key_base",
-    db: database.connect("lti_tool_demo_test"),
+    db: database.connect("lti_example_tool_test"),
     static_directory: "static_directory",
     lti_data_provider: lti_data_provider,
   )
@@ -46,7 +46,7 @@ pub fn get_home_page_test() {
   response
   |> testing.string_body
   |> should.equal(
-    "LTI Tool Demo\nThis is an example web application that demonstrates how to build an LTI tool.",
+    "LTI Example Tool\nThis is an example web application that demonstrates how to build an LTI tool.",
   )
 }
 

@@ -17,8 +17,8 @@ import lti/data_provider.{type DataProvider}
 import lti/jose.{type Claims, JoseJws, JoseJwt}
 import lti/providers/memory_provider/tables
 import lti/registration.{type Registration}
-import lti_tool_demo/utils/common.{try_with}
-import lti_tool_demo/utils/logger
+import lti_example_tool/utils/common.{try_with}
+import lti_example_tool/utils/logger
 
 /// Initiates the OIDC login flow
 pub fn oidc_login(

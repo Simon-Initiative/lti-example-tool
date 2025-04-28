@@ -1,7 +1,7 @@
 import gleam/dynamic/decode
 import gleam/option.{None, Some}
 import gleam/result
-import lti_tool_demo/database.{type Database}
+import lti_example_tool/database.{type Database}
 import pog
 
 fn platform_decoder() {

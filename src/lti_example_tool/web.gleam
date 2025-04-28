@@ -5,15 +5,15 @@ import lti/data_provider
 import lti/deployment.{Deployment}
 import lti/providers/memory_provider
 import lti/registration.{Registration}
-import lti_tool_demo/app_context.{type AppContext, AppContext}
-import lti_tool_demo/database
-import lti_tool_demo/utils/logger
+import lti_example_tool/app_context.{type AppContext, AppContext}
+import lti_example_tool/database
+import lti_example_tool/utils/logger
 import wisp
 
 pub fn setup() -> AppContext {
   let secret_key_base = load_secret_key_base()
 
-  let db = database.connect("lti_tool_demo")
+  let db = database.connect("lti_example_tool")
 
   let assert Ok(lti_data_provider) = memory_provider.start()
 
@@ -117,7 +117,7 @@ pub fn static_directory() -> String {
   // including static assets to be served.
   // This function returns an absolute path and works both in development and in
   // production after compilation.
-  let assert Ok(priv_directory) = wisp.priv_directory("lti_tool_demo")
+  let assert Ok(priv_directory) = wisp.priv_directory("lti_example_tool")
 
   priv_directory <> "/static"
 }

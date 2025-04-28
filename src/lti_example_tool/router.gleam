@@ -2,11 +2,11 @@ import gleam/http.{Get, Post}
 import gleam/int
 import gleam/string
 import gleam/string_tree
-import lti_tool_demo/app_context.{type AppContext}
-import lti_tool_demo/controllers/lti_controller
-import lti_tool_demo/platforms
-import lti_tool_demo/utils/common.{try_with}
-import lti_tool_demo/web
+import lti_example_tool/app_context.{type AppContext}
+import lti_example_tool/controllers/lti_controller
+import lti_example_tool/platforms
+import lti_example_tool/utils/common.{try_with}
+import lti_example_tool/web
 import wisp.{type Request, type Response}
 
 pub fn handle_request(req: Request, app: AppContext) -> Response {
@@ -47,7 +47,7 @@ fn home(req: Request) -> Response {
 
   let html =
     string_tree.from_string(
-      "LTI Tool Demo"
+      "LTI Example Tool"
       <> "\n"
       <> "This is an example web application that demonstrates how to build an LTI tool.",
     )

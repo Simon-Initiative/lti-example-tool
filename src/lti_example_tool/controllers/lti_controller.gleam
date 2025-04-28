@@ -6,9 +6,9 @@ import gleam/option.{Some}
 import gleam/string
 import gleam/string_tree
 import lti/tool
-import lti_tool_demo/app_context.{type AppContext}
-import lti_tool_demo/cookies.{require_cookie, set_cookie}
-import lti_tool_demo/utils/logger
+import lti_example_tool/app_context.{type AppContext}
+import lti_example_tool/cookies.{require_cookie, set_cookie}
+import lti_example_tool/utils/logger
 import wisp.{type Request, type Response, redirect}
 
 pub fn oidc_login(req: Request, app: AppContext) -> Response {
@@ -31,7 +31,7 @@ pub fn oidc_login(req: Request, app: AppContext) -> Response {
     Error(e) ->
       wisp.bad_request()
       |> wisp.html_body(string_tree.from_string(
-        "<h1>LTI Tool Demo - OIDC Login Failed</h1>"
+        "<h1>LTI Example Tool - OIDC Login Failed</h1>"
         <> "<p>"
         <> string.inspect(e)
         <> "</p>",
@@ -72,7 +72,7 @@ pub fn validate_launch(req: Request, app: AppContext) -> Response {
     Ok(claims) -> {
       let html =
         string_tree.from_string(
-          "<h1>LTI Tool Demo - Launch Successful</h1>"
+          "<h1>LTI Example Tool - Launch Successful</h1>"
           <> "<p>"
           <> string.inspect(claims)
           <> "</p>",

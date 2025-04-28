@@ -1,6 +1,6 @@
 import gleam/dynamic/decode
 import gleam/option.{Some}
-import lti_tool_demo/utils/logger
+import lti_example_tool/utils/logger
 import pog.{type Connection}
 
 pub type Database =

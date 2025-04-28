@@ -4,8 +4,8 @@ import gleam/dynamic/decode
 import gleam/io
 import gleam/list.{Continue, Stop}
 import gleam/set
-import lti_tool_demo/database
-import lti_tool_demo/utils/logger
+import lti_example_tool/database
+import lti_example_tool/utils/logger
 import pog.{type Connection, type Returned}
 
 pub fn main() {
@@ -13,7 +13,7 @@ pub fn main() {
 
   case argv.load().arguments {
     ["migrate"] -> {
-      let db = database.connect("lti_tool_demo")
+      let db = database.connect("lti_example_tool")
 
       migrate(db)
 
@@ -22,7 +22,7 @@ pub fn main() {
       Nil
     }
     ["seed"] -> {
-      let db = database.connect("lti_tool_demo")
+      let db = database.connect("lti_example_tool")
 
       seed(db)
 
@@ -31,7 +31,7 @@ pub fn main() {
       Nil
     }
     ["setup"] -> {
-      let db = database.connect("lti_tool_demo")
+      let db = database.connect("lti_example_tool")
 
       migrate(db)
       seed(db)
@@ -41,18 +41,18 @@ pub fn main() {
       Nil
     }
     ["reset"] -> {
-      reset("lti_tool_demo")
+      reset("lti_example_tool")
 
       Nil
     }
     ["test.reset"] -> {
-      reset("lti_tool_demo_test")
+      reset("lti_example_tool_test")
 
       Nil
     }
     _ ->
       io.println(
-        "usage: gleam run -m lti_tool_demo/database/migrate_and_seed [migrate|seed|setup|reset]",
+        "usage: gleam run -m lti_example_tool/database/migrate_and_seed [migrate|seed|setup|reset]",
       )
   }
 
@@ -117,7 +117,7 @@ type Migration {
 fn migrate(db: Connection) {
   logger.info("Running migrations...")
 
-  let result = run_migrations(db, lti_tool_demo_migrations())
+  let result = run_migrations(db, lti_example_tool_migrations())
 
   case result {
     Ok(_) -> {
@@ -202,7 +202,7 @@ fn run_migrations(
   })
 }
 
-fn lti_tool_demo_migrations() -> List(Migration) {
+fn lti_example_tool_migrations() -> List(Migration) {
   [
     Migration(
       name: "create_platforms_table",

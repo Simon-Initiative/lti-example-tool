@@ -1,20 +1,21 @@
-# lti_tool_demo
+# lti_example_tool
 
-[![Package Version](https://img.shields.io/hexpm/v/lti_tool_demo)](https://hex.pm/packages/lti_tool_demo)
-[![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/lti_tool_demo/)
+[![Package Version](https://img.shields.io/hexpm/v/lti_example_tool)](https://hex.pm/packages/lti_example_tool)
+[![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/lti_example_tool/)
 
 ```sh
-gleam add lti_tool_demo@1
+gleam add lti_example_tool@1
 ```
+
 ```gleam
-import lti_tool_demo
+import lti_example_tool
 
 pub fn main() -> Nil {
   // TODO: An example of the project in use
 }
 ```
 
-Further documentation can be found at <https://hexdocs.pm/lti_tool_demo>.
+Further documentation can be found at <https://hexdocs.pm/lti_example_tool>.
 
 ## Development
 

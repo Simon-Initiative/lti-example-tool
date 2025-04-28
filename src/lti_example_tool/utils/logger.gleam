@@ -15,7 +15,7 @@ pub type Level {
 /// Configure the Erlang logger to use the log level and output format that we
 /// want, rather than the more verbose Erlang default format.
 ///
-@external(erlang, "lti_tool_demo_ffi", "configure_logger_backend")
+@external(erlang, "lti_example_tool_ffi", "configure_logger_backend")
 pub fn configure_backend() -> Nil
 
 @external(erlang, "logger", "log")

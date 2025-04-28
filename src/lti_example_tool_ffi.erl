@@ -1,4 +1,4 @@
--module(lti_tool_demo_ffi).
+-module(lti_example_tool_ffi).
 
 -export([configure_logger_backend/0]).
 

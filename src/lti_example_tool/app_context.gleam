@@ -1,5 +1,5 @@
 import lti/data_provider.{type DataProvider}
-import lti_tool_demo/database.{type Database}
+import lti_example_tool/database.{type Database}
 
 pub type AppContext {
   AppContext(
