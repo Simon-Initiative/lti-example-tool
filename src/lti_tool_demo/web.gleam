@@ -7,6 +7,7 @@ import lti/providers/memory_provider
 import lti/registration.{Registration}
 import lti_tool_demo/app_context.{type AppContext, AppContext}
 import lti_tool_demo/database
+import lti_tool_demo/utils/logger
 import wisp
 
 pub fn setup() -> AppContext {
@@ -27,7 +28,7 @@ pub fn setup() -> AppContext {
         client_id: "EXAMPLE_CLIENT_ID",
         auth_endpoint: "http://localhost/lti/authorize_redirect",
         access_token_endpoint: "http://localhost/auth/token",
-        keyset_url: "http://localhost/.well-known/jwks",
+        keyset_url: "http://localhost/.well-known/jwks.json",
       ),
     )
 
@@ -35,7 +36,7 @@ pub fn setup() -> AppContext {
     data_provider.create_deployment(
       lti_data_provider,
       Deployment(
-        deployment_id: "example_deployment",
+        deployment_id: "7ad727c9-3f14-4ffc-91e5-8e1f0df27359",
         registration_id: registration_id,
       ),
     )
@@ -98,8 +99,17 @@ fn load_port() -> Int {
 }
 
 fn load_secret_key_base() -> String {
-  envoy.get("SECRET_KEY_BASE")
-  |> result.unwrap("change_me")
+  case envoy.get("SECRET_KEY_BASE") {
+    Ok(secret_key_base) -> secret_key_base
+    Error(_) -> {
+      logger.warn(
+        "SECRET_KEY_BASE is not set, using default which is not secure. "
+        <> "If you are running in production, please set this environment variable.",
+      )
+
+      "change_me"
+    }
+  }
 }
 
 pub fn static_directory() -> String {

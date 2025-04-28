@@ -43,7 +43,6 @@ fn all_params(
   req: Request,
   cb: fn(Dict(String, String)) -> Response,
 ) -> Response {
-  // use json <- wisp.require_json(req)
   use formdata <- wisp.require_form(req)
 
   // Combine query and body parameters into a single dictionary
@@ -88,21 +87,6 @@ pub fn validate_launch(req: Request, app: AppContext) -> Response {
       render_error("Invalid launch: " <> string.inspect(e))
     }
   }
-}
-
-pub fn jwks(req: Request, app: AppContext) -> Response {
-  // use <- wisp.require_method(req, Get)
-
-  // // Get the public keys from the data provider
-  // let assert Ok(keys) = lti_tool.get_jwks(app.lti_data_provider)
-
-  // // Convert the keys to a JSON response
-  // let json = decode.encode(keys)
-
-  // wisp.ok()
-  // |> wisp.json_body(json)
-
-  todo
 }
 
 fn render_error(reason: String) -> Response {

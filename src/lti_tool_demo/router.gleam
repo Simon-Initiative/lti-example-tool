@@ -28,7 +28,6 @@ pub fn handle_request(req: Request, app: AppContext) -> Response {
     ["platforms", id] -> show_platform(req, app, id)
 
     ["login"] -> lti_controller.oidc_login(req, app)
-    ["keys"] -> lti_controller.jwks(req, app)
 
     ["launch"] -> lti_controller.validate_launch(req, app)
 
