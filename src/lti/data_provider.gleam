@@ -1,5 +1,4 @@
 import gleam/erlang/process.{type Subject}
-import gleam/result
 import lti/deployment.{type Deployment}
 import lti/jwk.{type Jwk}
 import lti/nonce.{type Nonce}
