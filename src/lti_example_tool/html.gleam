@@ -63,7 +63,7 @@ pub fn page_layout(page_title: String) {
 pub fn render_error_page(error_message: String) {
   let layout = page_layout("Something went wrong")
 
-  wisp.ok()
+  wisp.internal_server_error()
   |> wisp.html_body(
     layout([
       div([class("text-center")], [

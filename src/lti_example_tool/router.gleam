@@ -1,3 +1,4 @@
+import gleam/http.{Get}
 import lti_example_tool/app_context.{type AppContext}
 import lti_example_tool/controllers/lti_controller
 import lti_example_tool/controllers/platform_controller
@@ -31,6 +32,8 @@ pub fn handle_request(req: Request, app: AppContext) -> Response {
   }
 }
 
-fn home(_req: Request) -> Response {
+fn home(req: Request) -> Response {
+  use <- wisp.require_method(req, Get)
+
   wisp.redirect("/platforms")
 }

@@ -12,6 +12,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: 🗄 Start test database
+        run: docker compose up -d postgres
+
       - uses: erlef/setup-beam@v1
         with:
           otp-version: "27.1.2"
@@ -19,5 +23,6 @@ jobs:
           rebar3-version: "3"
           # elixir-version: "1"
       - run: gleam deps download
+      - run: gleam run -m lti_example_tool/database/migrate_and_seed test.reset
       - run: gleam test
       - run: gleam format --check src test

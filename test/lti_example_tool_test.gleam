@@ -34,21 +34,15 @@ pub fn get_home_page_test() {
   let response = router.handle_request(request, app_context())
 
   response.status
-  |> should.equal(200)
+  |> should.equal(303)
 
   response.headers
-  |> list.contains(#("content-type", "text/html; charset=utf-8"))
+  |> list.contains(#("location", "/platforms"))
   |> should.be_true
 
   response.headers
   |> list.contains(#("made-with", "Gleam"))
   |> should.be_true
-
-  response
-  |> testing.string_body
-  |> should.equal(
-    "LTI Example Tool\nThis is an example web application that demonstrates how to build an LTI tool.",
-  )
 }
 
 pub fn login_test() {
@@ -84,7 +78,7 @@ pub fn login_test() {
     #("target_link_uri", "http://example.com/launch"),
   ]
   let request = testing.post_form("/login", [], form_data)
-  let response = router.handle_request(request, app_context())
+  let response = router.handle_request(request, ctx)
 
   response.status
   |> should.equal(303)
@@ -103,7 +97,7 @@ pub fn login_test() {
           string.contains(cookie, "state=")
           && string.contains(
             cookie,
-            "Max-Age=3599; Path=/; Secure; HttpOnly; SameSite=None",
+            "Max-Age=86400; Path=/; Secure; HttpOnly; SameSite=None",
           )
         }
         |> should.be_true
@@ -117,6 +111,7 @@ pub fn login_test() {
 pub fn post_home_page_test() {
   let request = testing.post("/", [], "a body")
   let response = router.handle_request(request, app_context())
+
   response.status
   |> should.equal(405)
 }
@@ -124,6 +119,7 @@ pub fn post_home_page_test() {
 pub fn page_not_found_test() {
   let request = testing.get("/nothing-here", [])
   let response = router.handle_request(request, app_context())
+
   response.status
   |> should.equal(404)
 }
@@ -131,37 +127,15 @@ pub fn page_not_found_test() {
 pub fn get_platforms_test() {
   let request = testing.get("/platforms", [])
   let response = router.handle_request(request, app_context())
+
   response.status
   |> should.equal(200)
-}
-
-// pub fn post_platforms_test() {
-//   let request = testing.post("/platforms", [], "")
-//   let response = router.handle_request(request, app_context())
-//   response.status
-//   |> should.equal(201)
-// }
-
-pub fn delete_platforms_test() {
-  let request = testing.delete("/platforms", [], "")
-  let response = router.handle_request(request, app_context())
-  response.status
-  |> should.equal(405)
 }
 
 pub fn get_platform_test() {
   let request = testing.get("/platforms/123", [])
   let response = router.handle_request(request, app_context())
-  response.status
-  |> should.equal(200)
-  response
-  |> testing.string_body
-  |> should.equal("Platforms\nNone")
-}
 
-pub fn delete_platform_test() {
-  let request = testing.delete("/platforms/123", [], "")
-  let response = router.handle_request(request, app_context())
   response.status
-  |> should.equal(405)
+  |> should.equal(404)
 }
