@@ -15,7 +15,6 @@ import gleam/uri.{query_to_string}
 import ids/uuid
 import lti/data_provider.{type DataProvider}
 import lti/jose.{type Claims, JoseJws, JoseJwt}
-import lti/providers/memory_provider/tables
 import lti/registration.{type Registration}
 import lti_example_tool/utils/common.{try_with}
 import lti_example_tool/utils/logger
