@@ -32,7 +32,7 @@ pub fn oidc_login(req: Request, app: AppContext) -> Response {
 
       redirect(to: redirect_url)
     }
-    Error(e) -> render_error_page("OIDC login failed: " <> string.inspect(e))
+    Error(error) -> render_error_page("OIDC login failed: " <> error)
   }
 }
 
