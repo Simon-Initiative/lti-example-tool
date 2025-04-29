@@ -43,7 +43,7 @@ pub fn index(app: AppContext) -> Response {
     })
 
   render_page("All Platforms", [
-    div([class("flex flex-row justify-end")], [
+    div([class("flex flex-row justify-end mb-4")], [
       components.link(Primary, [href("/platforms/new")], [
         text("Create Platform"),
       ]),

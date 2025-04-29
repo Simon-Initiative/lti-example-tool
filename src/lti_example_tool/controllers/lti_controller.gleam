@@ -1,14 +1,18 @@
 import gleam/dict.{type Dict}
+import gleam/dynamic.{type Dynamic}
 import gleam/http
 import gleam/http/cookie
 import gleam/list
 import gleam/option.{Some}
 import gleam/string
-import gleam/string_tree
 import lti/tool
 import lti_example_tool/app_context.{type AppContext}
 import lti_example_tool/cookies.{require_cookie, set_cookie}
+import lti_example_tool/html.{render_error_page, render_page} as _
+import lti_example_tool/html/tables.{Column}
 import lti_example_tool/utils/logger
+import lustre/attribute.{class}
+import lustre/element/html.{div, text}
 import wisp.{type Request, type Response, redirect}
 
 pub fn oidc_login(req: Request, app: AppContext) -> Response {
@@ -28,14 +32,7 @@ pub fn oidc_login(req: Request, app: AppContext) -> Response {
 
       redirect(to: redirect_url)
     }
-    Error(e) ->
-      wisp.bad_request()
-      |> wisp.html_body(string_tree.from_string(
-        "<h1>LTI Example Tool - OIDC Login Failed</h1>"
-        <> "<p>"
-        <> string.inspect(e)
-        <> "</p>",
-      ))
+    Error(e) -> render_error_page("OIDC login failed: " <> string.inspect(e))
   }
 }
 
@@ -65,33 +62,34 @@ pub fn validate_launch(req: Request, app: AppContext) -> Response {
   use session_state <- require_cookie(req, "state", or_else: fn() {
     logger.error("Required 'state' cookie not found")
 
-    render_error("Required 'state' cookie not found")
+    render_error_page("Required 'state' cookie not found")
   })
 
   case tool.validate_launch(app.lti_data_provider, params, session_state) {
     Ok(claims) -> {
-      let html =
-        string_tree.from_string(
-          "<h1>LTI Example Tool - Launch Successful</h1>"
-          <> "<p>"
-          <> string.inspect(claims)
-          <> "</p>",
-        )
-
-      wisp.ok()
-      |> wisp.html_body(html)
+      render_page("Launch Successful", [
+        div([class("container")], [
+          tables.table(
+            [],
+            [
+              Column("Claim", fn(record: #(String, Dynamic)) {
+                let #(claim, _value) = record
+                text(claim)
+              }),
+              Column("Value", fn(record: #(String, Dynamic)) {
+                let #(_key, value) = record
+                text(string.inspect(value))
+              }),
+            ],
+            dict.to_list(claims),
+          ),
+        ]),
+      ])
     }
     Error(e) -> {
       logger.error_meta("Invalid launch", e)
 
-      render_error("Invalid launch: " <> string.inspect(e))
+      render_error_page("Invalid launch: " <> string.inspect(e))
     }
   }
-}
-
-fn render_error(reason: String) -> Response {
-  wisp.bad_request()
-  |> wisp.html_body(string_tree.from_string(
-    "<h1>Something went wrong</h1>" <> "<p>Reason: " <> reason <> "</p>",
-  ))
 }

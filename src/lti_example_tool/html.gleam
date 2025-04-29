@@ -2,7 +2,9 @@ import lustre/attribute.{
   charset, class, content, crossorigin, href, lang, name, referrerpolicy, rel,
 }
 import lustre/element
-import lustre/element/html.{body, div, h1, head, html, link, meta, text, title}
+import lustre/element/html.{
+  body, div, h1, head, html, link, meta, p, text, title,
+}
 import lustre/vdom/vnode
 import wisp
 
@@ -56,4 +58,18 @@ pub fn page_layout(page_title: String) {
       ),
     ])
   }
+}
+
+pub fn render_error_page(error_message: String) {
+  let layout = page_layout("Something went wrong")
+
+  wisp.ok()
+  |> wisp.html_body(
+    layout([
+      div([class("text-center")], [
+        p([class("text-red-500")], [text(error_message)]),
+      ]),
+    ])
+    |> element.to_string_tree(),
+  )
 }
