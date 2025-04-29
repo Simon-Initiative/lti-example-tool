@@ -9,7 +9,10 @@ Interoperability) specification.
 ### Prerequisites
 
 - [asdf](https://asdf-vm.com/) - A version manager for multiple programming languages.
-- [Gleam](https://gleam.run/) - The programming language used for this project. Installed via `asdf`.
+- [Gleam](https://gleam.run/) - The programming language used for this project. Can be installed via
+  `asdf`.
+- [Node.js](https://nodejs.org/) - The JavaScript runtime used for tailwind styles. Can be installed via
+  `asdf`.
 - [PostgreSQL](https://www.postgresql.org/) - The database used for this project.
 - [watchexec](https://github.com/watchexec/watchexec) - A tool to watch for file changes. Available
   via `brew install watchexec` on macOS.
@@ -25,23 +28,28 @@ Interoperability) specification.
    ```sh
    asdf install
    ```
-3. Install the dependencies:
+3. Install npm dependencies:
+   ```sh
+   npm install
+   ```
+   This will install the tailwind used for styles.
+4. Install the dependencies:
    ```sh
    gleam deps download
    ```
-4. Initialize the database:
+5. Initialize the database:
    ```sh
    gleam run -m lti_example_tool/database/migrate_and_seed setup
    ```
-5. Copy the example seeds file and edit it for automatic platform configuration:
+6. Copy the example seeds file and edit it for automatic platform configuration:
    ```sh
    cp seeds.example.yml seeds.yml
    ```
-6. Run the server and watch for changes:
+7. Run the server and watch for changes:
    ```sh
    watchexec --stop-signal=SIGKILL -r -e gleam gleam run
    ```
-7. Open the application in your browser:
+8. Open the application in your browser:
    ```sh
    open http://localhost:3000
    ```
