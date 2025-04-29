@@ -3,13 +3,15 @@ import gleam/int
 import gleam/list
 import gleam/result
 import lti/deployment.{Deployment}
-import lti/providers/memory_provider
 import lti/registration.{type Registration, Registration}
 import lti_example_tool/app_context.{type AppContext}
+import lti_example_tool/database.{type Record, Record}
+import lti_example_tool/deployments
 import lti_example_tool/html.{render_page} as _
 import lti_example_tool/html/components.{DangerLink, Link, Primary, Secondary}
 import lti_example_tool/html/forms
 import lti_example_tool/html/tables.{Column}
+import lti_example_tool/platforms
 import lti_example_tool/utils/common.{try_with} as _
 import lustre/attribute.{action, class, href, method, type_}
 import lustre/element/html.{div, form, text}
@@ -33,14 +35,10 @@ pub fn resources(req: Request, app: AppContext) -> Response {
 }
 
 pub fn index(app: AppContext) -> Response {
-  let registrations =
-    memory_provider.list_registrations(app.memory_provider)
-    |> list.sort(fn(a, b) {
-      let #(id_a, _registration_a) = a
-      let #(id_b, _registration_b) = b
-
-      int.compare(id_a, id_b)
-    })
+  use platforms <- try_with(platforms.all(app.db), or_else: fn(_) {
+    wisp.log_error("Failed to fetch platforms")
+    wisp.internal_server_error()
+  })
 
   render_page("All Platforms", [
     div([class("flex flex-row justify-end mb-4")], [
@@ -51,24 +49,24 @@ pub fn index(app: AppContext) -> Response {
     tables.table(
       [],
       [
-        Column("ID", fn(record: #(Int, Registration)) {
-          let #(id, _registration) = record
+        Column("ID", fn(record: Record(Registration)) {
+          let Record(id, ..) = record
           text(int.to_string(id))
         }),
-        Column("Name", fn(record: #(Int, Registration)) {
-          let #(_id, registration) = record
-          text(registration.name)
+        Column("Name", fn(record: Record(Registration)) {
+          let Record(data: platform, ..) = record
+          text(platform.name)
         }),
-        Column("Issuer", fn(record: #(Int, Registration)) {
-          let #(_id, registration) = record
-          text(registration.issuer)
+        Column("Issuer", fn(record: Record(Registration)) {
+          let Record(data: platform, ..) = record
+          text(platform.issuer)
         }),
-        Column("Client ID", fn(record: #(Int, Registration)) {
-          let #(_id, registration) = record
-          text(registration.client_id)
+        Column("Client ID", fn(record: Record(Registration)) {
+          let Record(data: platform, ..) = record
+          text(platform.client_id)
         }),
-        Column("Actions", fn(record: #(Int, Registration)) {
-          let #(id, _registration) = record
+        Column("Actions", fn(record: Record(Registration)) {
+          let Record(id, ..) = record
           div([], [
             components.link(Link, [href("/platforms/" <> int.to_string(id))], [
               text("View"),
@@ -76,7 +74,7 @@ pub fn index(app: AppContext) -> Response {
           ])
         }),
       ],
-      registrations,
+      platforms,
     ),
   ])
 }
@@ -128,9 +126,9 @@ pub fn create(req: Request, app: AppContext) -> Response {
       "deployment_id",
     ))
 
-    use #(registration_id, _registration) <- result.try(
-      memory_provider.create_registration(
-        app.memory_provider,
+    use platform_id <- result.try(
+      platforms.insert(
+        app.db,
         Registration(
           name,
           issuer,
@@ -139,15 +137,16 @@ pub fn create(req: Request, app: AppContext) -> Response {
           access_token_endpoint,
           keyset_url,
         ),
-      ),
+      )
+      |> result.replace_error(Nil),
     )
 
-    use _deployment <- result.try(memory_provider.create_deployment(
-      app.memory_provider,
-      Deployment(deployment_id, registration_id),
-    ))
+    use _deployment_id <- result.try(
+      deployments.insert(app.db, Deployment(deployment_id, platform_id))
+      |> result.replace_error(Nil),
+    )
 
-    Ok(registration_id)
+    Ok(platform_id)
   }
 
   case result {
@@ -168,19 +167,19 @@ pub fn show(req: Request, app: AppContext, id: String) -> Response {
     wisp.bad_request()
   })
 
-  use #(_id, registration) <- try_with(
-    memory_provider.get_registration(app.memory_provider, id),
+  use Record(data: platform, ..) <- try_with(
+    platforms.get(app.db, id),
     or_else: fn(_) { wisp.not_found() },
   )
 
-  render_page("Platform Registration Details", [
+  render_page("Platform Platform Details", [
     div([class("flex flex-col")], [
-      div([class("text-2xl font-bold")], [text(registration.name)]),
-      div([class("text-gray-500")], [text(registration.issuer)]),
-      div([class("text-gray-500")], [text(registration.client_id)]),
-      div([class("text-gray-500")], [text(registration.auth_endpoint)]),
-      div([class("text-gray-500")], [text(registration.access_token_endpoint)]),
-      div([class("text-gray-500")], [text(registration.keyset_url)]),
+      div([class("text-2xl font-bold")], [text(platform.name)]),
+      div([class("text-gray-500")], [text(platform.issuer)]),
+      div([class("text-gray-500")], [text(platform.client_id)]),
+      div([class("text-gray-500")], [text(platform.auth_endpoint)]),
+      div([class("text-gray-500")], [text(platform.access_token_endpoint)]),
+      div([class("text-gray-500")], [text(platform.keyset_url)]),
     ]),
     div([class("flex flex-row")], [
       components.link(Link, [href("/platforms")], [text("Back to Platforms")]),
@@ -209,10 +208,9 @@ pub fn delete(req: Request, app: AppContext, id: String) -> Response {
     wisp.bad_request()
   })
 
-  use _ <- try_with(
-    memory_provider.delete_registration(app.memory_provider, id),
-    or_else: fn(_) { wisp.not_found() },
-  )
+  use _ <- try_with(platforms.delete(app.db, id), or_else: fn(_) {
+    wisp.not_found()
+  })
 
   wisp.redirect("/platforms")
 }

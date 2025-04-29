@@ -37,7 +37,7 @@ pub type Message {
   GetAllJwks(reply_with: Subject(List(Jwk)))
   CreateJwk(jwk: Jwk)
   CreateNonce(reply_with: Subject(Result(Nonce, Nil)))
-  ValidateNonce(value: String, reply_with: Subject(Result(Nonce, Nil)))
+  ValidateNonce(value: String, reply_with: Subject(Result(Nil, Nil)))
   CleanupExpiredNonces
   CreateRegistration(
     registration: Registration,
@@ -108,7 +108,7 @@ fn handle_message(message: Message, state: State) -> actor.Next(Message, State) 
     ValidateNonce(value, reply_with) -> {
       let result = list.find(state.nonces, fn(nonce) { nonce.nonce == value })
 
-      actor.send(reply_with, result)
+      actor.send(reply_with, result |> result.map(fn(_) { Nil }))
 
       // remove the nonce from the list so it can't be reused
       let nonces = list.filter(state.nonces, fn(nonce) { nonce.nonce != value })

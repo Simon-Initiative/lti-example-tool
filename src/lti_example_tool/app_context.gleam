@@ -1,5 +1,4 @@
 import lti/data_provider.{type DataProvider}
-import lti/providers/memory_provider.{type MemoryProvider}
 import lti_example_tool/database.{type Database}
 
 pub type Env {
@@ -16,6 +15,5 @@ pub type AppContext {
     db: Database,
     static_directory: String,
     lti_data_provider: DataProvider,
-    memory_provider: MemoryProvider,
   )
 }

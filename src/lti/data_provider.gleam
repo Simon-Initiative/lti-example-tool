@@ -5,7 +5,7 @@ import lti/registration.{type Registration}
 pub type DataProvider {
   DataProvider(
     create_nonce: fn() -> Result(Nonce, String),
-    validate_nonce: fn(String) -> Result(Nonce, String),
+    validate_nonce: fn(String) -> Result(Nil, String),
     get_registration: fn(String, String) -> Result(Registration, String),
     get_deployment: fn(String, String, String) -> Result(Deployment, String),
   )
@@ -18,7 +18,7 @@ pub fn create_nonce(provider: DataProvider) -> Result(Nonce, String) {
 pub fn validate_nonce(
   provider: DataProvider,
   value: String,
-) -> Result(Nonce, String) {
+) -> Result(Nil, String) {
   provider.validate_nonce(value)
 }
 

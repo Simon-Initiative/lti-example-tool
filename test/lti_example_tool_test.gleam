@@ -15,25 +15,29 @@ pub fn main() {
   gleeunit.main()
 }
 
-fn app_context() {
+fn setup() {
   let assert Ok(memory_provider) = memory_provider.start()
   let assert Ok(lti_data_provider) =
     memory_provider.data_provider(memory_provider)
 
-  AppContext(
-    env: app_context.Test,
-    port: 8080,
-    secret_key_base: "secret_key_base",
-    db: database.connect("lti_example_tool_test"),
-    static_directory: "static_directory",
-    lti_data_provider: lti_data_provider,
-    memory_provider: memory_provider,
+  #(
+    memory_provider,
+    AppContext(
+      env: app_context.Test,
+      port: 8080,
+      secret_key_base: "secret_key_base",
+      db: database.connect("lti_example_tool_test"),
+      static_directory: "static_directory",
+      lti_data_provider: lti_data_provider,
+    ),
   )
 }
 
 pub fn get_home_page_test() {
+  let #(_memory_provider, ctx) = setup()
+
   let request = testing.get("/", [])
-  let response = router.handle_request(request, app_context())
+  let response = router.handle_request(request, ctx)
 
   response.status
   |> should.equal(303)
@@ -48,8 +52,7 @@ pub fn get_home_page_test() {
 }
 
 pub fn login_test() {
-  let ctx = app_context()
-  let AppContext(memory_provider: memory_provider, ..) = ctx
+  let #(memory_provider, ctx) = setup()
 
   let assert Ok(#(registration_id, registration)) =
     memory_provider.create_registration(
@@ -111,32 +114,40 @@ pub fn login_test() {
 }
 
 pub fn post_home_page_test() {
+  let #(_memory_provider, ctx) = setup()
+
   let request = testing.post("/", [], "a body")
-  let response = router.handle_request(request, app_context())
+  let response = router.handle_request(request, ctx)
 
   response.status
   |> should.equal(405)
 }
 
 pub fn page_not_found_test() {
+  let #(_memory_provider, ctx) = setup()
+
   let request = testing.get("/nothing-here", [])
-  let response = router.handle_request(request, app_context())
+  let response = router.handle_request(request, ctx)
 
   response.status
   |> should.equal(404)
 }
 
 pub fn get_platforms_test() {
+  let #(_memory_provider, ctx) = setup()
+
   let request = testing.get("/platforms", [])
-  let response = router.handle_request(request, app_context())
+  let response = router.handle_request(request, ctx)
 
   response.status
   |> should.equal(200)
 }
 
 pub fn get_platform_test() {
+  let #(_memory_provider, ctx) = setup()
+
   let request = testing.get("/platforms/123", [])
-  let response = router.handle_request(request, app_context())
+  let response = router.handle_request(request, ctx)
 
   response.status
   |> should.equal(404)

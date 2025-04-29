@@ -3,8 +3,10 @@ import gleam/dynamic.{type Dynamic}
 import gleam/dynamic/decode
 import gleam/io
 import gleam/list.{Continue, Stop}
+import gleam/result
 import gleam/set
 import lti_example_tool/database
+import lti_example_tool/seeds
 import lti_example_tool/utils/logger
 import pog.{type Connection, type Returned}
 
@@ -15,7 +17,7 @@ pub fn main() {
     ["migrate"] -> {
       let db = database.connect("lti_example_tool")
 
-      migrate(db)
+      let assert Ok(_) = migrate(db)
 
       database.disconnect(db)
 
@@ -24,7 +26,7 @@ pub fn main() {
     ["seed"] -> {
       let db = database.connect("lti_example_tool")
 
-      seed(db)
+      let assert Ok(_) = seed(db)
 
       database.disconnect(db)
 
@@ -33,20 +35,20 @@ pub fn main() {
     ["setup"] -> {
       let db = database.connect("lti_example_tool")
 
-      migrate(db)
-      seed(db)
+      let assert Ok(_) = migrate(db)
+      let assert Ok(_) = seed(db)
 
       database.disconnect(db)
 
       Nil
     }
     ["reset"] -> {
-      reset("lti_example_tool")
+      let assert Ok(_) = reset("lti_example_tool")
 
       Nil
     }
     ["test.reset"] -> {
-      reset("lti_example_tool_test")
+      let assert Ok(_) = reset("lti_example_tool_test")
 
       Nil
     }
@@ -100,10 +102,12 @@ fn reset(db_name: String) {
 
   let db = database.connect(db_name)
 
-  migrate(db)
-  seed(db)
+  use _ <- result.try(migrate(db))
+  use _ <- result.try(seed(db))
 
   database.disconnect(db)
+
+  Ok(Nil)
 }
 
 type Migration {
@@ -127,6 +131,8 @@ fn migrate(db: Connection) {
       logger.error("Migrations failed.")
     }
   }
+
+  result |> result.replace_error("Failed to run migrations")
 }
 
 fn run_migrations(
@@ -233,13 +239,37 @@ fn lti_example_tool_migrations() -> List(Migration) {
       },
     ),
     Migration(
+      name: "create_deployments_table",
+      up: fn(conn) {
+        let sql =
+          "
+          CREATE TABLE deployments (
+            id SERIAL PRIMARY KEY,
+            deployment_id TEXT,
+            platform_id INT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(platform_id, deployment_id),
+            FOREIGN KEY (platform_id) REFERENCES platforms(id)
+          );
+        "
+        pog.query(sql) |> pog.returning(decode.dynamic) |> pog.execute(conn)
+      },
+      down: fn(conn) {
+        let sql =
+          "
+          DROP TABLE deployments;
+        "
+        pog.query(sql) |> pog.returning(decode.dynamic) |> pog.execute(conn)
+      },
+    ),
+    Migration(
       name: "create_nonces_table",
       up: fn(conn) {
         let sql =
           "
           CREATE TABLE nonces (
-            nonce VARCHAR(255) PRIMARY KEY,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            nonce TEXT PRIMARY KEY,
             expires_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(nonce)
           );
@@ -260,18 +290,9 @@ fn lti_example_tool_migrations() -> List(Migration) {
 fn seed(db: Connection) {
   logger.info("Seeding database...")
 
-  // TODO: read in platform configs from file and insert them into the database
-
-  let sql =
-    "
-    INSERT INTO platforms (
-      name, issuer, client_id, auth_endpoint, access_token_endpoint, keyset_url
-    ) VALUES
-      ('OLI Torus Platform', 'http://localhost', '10000000001', 'http://localhost/lti/authorize_redirect', 'http://localhost/auth/token', 'http://localhost/.well-known/jwks');
-   "
-
-  let assert Ok(_) =
-    pog.query(sql) |> pog.returning(decode.dynamic) |> pog.execute(db)
+  use _ <- result.try(seeds.load(db))
 
   logger.info("Database seeded.")
+
+  Ok(Nil)
 }

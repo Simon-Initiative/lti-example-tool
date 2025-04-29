@@ -5,11 +5,13 @@ import gleam/list
 import gleam/result
 import gleam/string
 import lti/deployment.{Deployment}
-import lti/providers/memory_provider.{type MemoryProvider}
 import lti/registration.{Registration}
+import lti_example_tool/database.{type Database}
+import lti_example_tool/deployments
+import lti_example_tool/platforms
 import lti_example_tool/utils/logger
 
-pub fn load(memory_provider: MemoryProvider) -> Result(Nil, String) {
+pub fn load(db: Database) -> Result(Nil, String) {
   use contents <- result.try(
     glaml.parse_file("seeds.yml")
     |> result.replace_error("Failed to load seeds.yml"),
@@ -24,17 +26,13 @@ pub fn load(memory_provider: MemoryProvider) -> Result(Nil, String) {
     |> result.replace_error("Failed to parse platforms from seeds.yml"),
   )
 
-  process_platforms(platforms, memory_provider)
+  process_platforms(platforms, db)
 }
 
-fn process_platforms(node: glaml.Node, memory_provider) -> Result(Nil, String) {
+fn process_platforms(node: glaml.Node, db) -> Result(Nil, String) {
   case node {
     glaml.NodeSeq(seq) -> {
-      case
-        result.all(
-          list.map(seq, fn(node) { process_platform(node, memory_provider) }),
-        )
-      {
+      case result.all(list.map(seq, fn(node) { process_platform(node, db) })) {
         Ok(_) -> Ok(Nil)
         Error(e) -> Error(e)
       }
@@ -48,7 +46,7 @@ fn process_platforms(node: glaml.Node, memory_provider) -> Result(Nil, String) {
   }
 }
 
-fn process_platform(node: glaml.Node, memory_provider) -> Result(Nil, String) {
+fn process_platform(node: glaml.Node, db) -> Result(Nil, String) {
   case node {
     glaml.NodeMap(map) -> {
       use values <- result.try(
@@ -82,9 +80,9 @@ fn process_platform(node: glaml.Node, memory_provider) -> Result(Nil, String) {
         |> result.replace_error("Missing deployment_id"),
       )
 
-      use #(registration_id, _registration) <- result.try(
-        memory_provider.create_registration(
-          memory_provider,
+      use registration_id <- result.try(
+        platforms.insert(
+          db,
           Registration(
             name,
             issuer,
@@ -94,13 +92,14 @@ fn process_platform(node: glaml.Node, memory_provider) -> Result(Nil, String) {
             keyset_url,
           ),
         )
-        |> result.replace_error("Failed to create registration"),
+        |> result.map_error(fn(e) {
+          logger.error_meta("Failed to create registration", e)
+
+          "Failed to create registration"
+        }),
       )
       use _deployment <- result.try(
-        memory_provider.create_deployment(
-          memory_provider,
-          Deployment(deployment_id, registration_id),
-        )
+        deployments.insert(db, Deployment(deployment_id, registration_id))
         |> result.replace_error("Failed to create deployment"),
       )
 

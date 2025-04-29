@@ -2,10 +2,9 @@ import envoy
 import gleam/int
 import gleam/result
 import gleam/string
-import lti/providers/memory_provider
 import lti_example_tool/app_context.{type AppContext, type Env, AppContext}
 import lti_example_tool/database
-import lti_example_tool/seeds
+import lti_example_tool/db_provider
 import lti_example_tool/utils/devtools
 import lti_example_tool/utils/logger
 import wisp
@@ -16,11 +15,7 @@ pub fn setup() -> AppContext {
 
   let db = database.connect("lti_example_tool")
 
-  let assert Ok(memory_provider) = memory_provider.start()
-  let assert Ok(lti_data_provider) =
-    memory_provider.data_provider(memory_provider)
-
-  let assert Ok(_) = seeds.load(memory_provider)
+  let assert Ok(lti_data_provider) = db_provider.data_provider(db)
 
   let _ = devtools.maybe_start_devtools(env)
 
@@ -31,7 +26,6 @@ pub fn setup() -> AppContext {
     db: db,
     static_directory: static_directory(),
     lti_data_provider: lti_data_provider,
-    memory_provider: memory_provider,
   )
 }
 
