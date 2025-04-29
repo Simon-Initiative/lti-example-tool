@@ -12,7 +12,7 @@ import lti_example_tool/html.{render_error_page, render_page} as _
 import lti_example_tool/html/tables.{Column}
 import lti_example_tool/utils/logger
 import lustre/attribute.{class}
-import lustre/element/html.{div, text}
+import lustre/element/html.{div, span, text}
 import wisp.{type Request, type Response, redirect}
 
 pub fn oidc_login(req: Request, app: AppContext) -> Response {
@@ -74,7 +74,7 @@ pub fn validate_launch(req: Request, app: AppContext) -> Response {
             [
               Column("Claim", fn(record: #(String, Dynamic)) {
                 let #(claim, _value) = record
-                text(claim)
+                span([class("font-semibold")], [text(claim)])
               }),
               Column("Value", fn(record: #(String, Dynamic)) {
                 let #(_key, value) = record
