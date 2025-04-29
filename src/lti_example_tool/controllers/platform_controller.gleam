@@ -2,8 +2,8 @@ import gleam/http.{Get, Post}
 import gleam/int
 import gleam/list
 import gleam/result
-import lti/data_provider
 import lti/deployment.{Deployment}
+import lti/providers/memory_provider
 import lti/registration.{type Registration, Registration}
 import lti_example_tool/app_context.{type AppContext}
 import lti_example_tool/html.{render_page} as _
@@ -34,7 +34,7 @@ pub fn resources(req: Request, app: AppContext) -> Response {
 
 pub fn index(app: AppContext) -> Response {
   let registrations =
-    data_provider.list_registrations(app.lti_data_provider)
+    memory_provider.list_registrations(app.memory_provider)
     |> list.sort(fn(a, b) {
       let #(id_a, _registration_a) = a
       let #(id_b, _registration_b) = b
@@ -129,8 +129,8 @@ pub fn create(req: Request, app: AppContext) -> Response {
     ))
 
     use #(registration_id, _registration) <- result.try(
-      data_provider.create_registration(
-        app.lti_data_provider,
+      memory_provider.create_registration(
+        app.memory_provider,
         Registration(
           name,
           issuer,
@@ -142,8 +142,8 @@ pub fn create(req: Request, app: AppContext) -> Response {
       ),
     )
 
-    use _deployment <- result.try(data_provider.create_deployment(
-      app.lti_data_provider,
+    use _deployment <- result.try(memory_provider.create_deployment(
+      app.memory_provider,
       Deployment(deployment_id, registration_id),
     ))
 
@@ -169,7 +169,7 @@ pub fn show(req: Request, app: AppContext, id: String) -> Response {
   })
 
   use #(_id, registration) <- try_with(
-    data_provider.get_registration(app.lti_data_provider, id),
+    memory_provider.get_registration(app.memory_provider, id),
     or_else: fn(_) { wisp.not_found() },
   )
 
@@ -210,7 +210,7 @@ pub fn delete(req: Request, app: AppContext, id: String) -> Response {
   })
 
   use _ <- try_with(
-    data_provider.delete_registration(app.lti_data_provider, id),
+    memory_provider.delete_registration(app.memory_provider, id),
     or_else: fn(_) { wisp.not_found() },
   )
 

@@ -16,9 +16,11 @@ pub fn setup() -> AppContext {
 
   let db = database.connect("lti_example_tool")
 
-  let assert Ok(lti_data_provider) = memory_provider.start()
+  let assert Ok(memory_provider) = memory_provider.start()
+  let assert Ok(lti_data_provider) =
+    memory_provider.data_provider(memory_provider)
 
-  let assert Ok(_) = seeds.load(lti_data_provider)
+  let assert Ok(_) = seeds.load(memory_provider)
 
   let _ = devtools.maybe_start_devtools(env)
 
@@ -29,6 +31,7 @@ pub fn setup() -> AppContext {
     db: db,
     static_directory: static_directory(),
     lti_data_provider: lti_data_provider,
+    memory_provider: memory_provider,
   )
 }
 

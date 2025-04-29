@@ -4,12 +4,12 @@ import gleam/int
 import gleam/list
 import gleam/result
 import gleam/string
-import lti/data_provider
 import lti/deployment.{Deployment}
+import lti/providers/memory_provider.{type MemoryProvider}
 import lti/registration.{Registration}
 import lti_example_tool/utils/logger
 
-pub fn load(lti_data_provider) -> Result(Nil, String) {
+pub fn load(memory_provider: MemoryProvider) -> Result(Nil, String) {
   use contents <- result.try(
     glaml.parse_file("seeds.yml")
     |> result.replace_error("Failed to load seeds.yml"),
@@ -24,15 +24,15 @@ pub fn load(lti_data_provider) -> Result(Nil, String) {
     |> result.replace_error("Failed to parse platforms from seeds.yml"),
   )
 
-  process_platforms(platforms, lti_data_provider)
+  process_platforms(platforms, memory_provider)
 }
 
-fn process_platforms(node: glaml.Node, lti_data_provider) -> Result(Nil, String) {
+fn process_platforms(node: glaml.Node, memory_provider) -> Result(Nil, String) {
   case node {
     glaml.NodeSeq(seq) -> {
       case
         result.all(
-          list.map(seq, fn(node) { process_platform(node, lti_data_provider) }),
+          list.map(seq, fn(node) { process_platform(node, memory_provider) }),
         )
       {
         Ok(_) -> Ok(Nil)
@@ -48,7 +48,7 @@ fn process_platforms(node: glaml.Node, lti_data_provider) -> Result(Nil, String)
   }
 }
 
-fn process_platform(node: glaml.Node, lti_data_provider) -> Result(Nil, String) {
+fn process_platform(node: glaml.Node, memory_provider) -> Result(Nil, String) {
   case node {
     glaml.NodeMap(map) -> {
       use values <- result.try(
@@ -83,8 +83,8 @@ fn process_platform(node: glaml.Node, lti_data_provider) -> Result(Nil, String) 
       )
 
       use #(registration_id, _registration) <- result.try(
-        data_provider.create_registration(
-          lti_data_provider,
+        memory_provider.create_registration(
+          memory_provider,
           Registration(
             name,
             issuer,
@@ -97,8 +97,8 @@ fn process_platform(node: glaml.Node, lti_data_provider) -> Result(Nil, String) 
         |> result.replace_error("Failed to create registration"),
       )
       use _deployment <- result.try(
-        data_provider.create_deployment(
-          lti_data_provider,
+        memory_provider.create_deployment(
+          memory_provider,
           Deployment(deployment_id, registration_id),
         )
         |> result.replace_error("Failed to create deployment"),

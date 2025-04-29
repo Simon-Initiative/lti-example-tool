@@ -36,10 +36,7 @@ pub fn oidc_login(
     Error("Missing target_link_uri")
   })
   use login_hint <- result.try(validate_login_hint_exists(params))
-  use registration <- result.try(
-    validate_registration(provider, params)
-    |> result.replace_error("Invalid registration"),
-  )
+  use registration <- result.try(validate_registration(provider, params))
   use client_id <- result.try(validate_client_id_exists(params))
 
   let assert Ok(state) = uuid.generate_v4()
@@ -95,12 +92,15 @@ fn validate_login_hint_exists(
 fn validate_registration(
   provider: DataProvider,
   params: Dict(String, String),
-) -> Result(Registration, Nil) {
-  use issuer <- result.try(dict.get(params, "iss"))
-  use client_id <- result.try(dict.get(params, "client_id"))
+) -> Result(Registration, String) {
+  use issuer <- result.try(
+    dict.get(params, "iss") |> result.replace_error("Missing issuer"),
+  )
+  use client_id <- result.try(
+    dict.get(params, "client_id") |> result.replace_error("Missing client_id"),
+  )
 
-  data_provider.get_registration_by(provider, issuer, client_id)
-  |> result.map(tables.value)
+  data_provider.get_registration(provider, issuer, client_id)
 }
 
 fn validate_client_id_exists(
@@ -122,15 +122,13 @@ pub fn validate_launch(
     dict.get(params, "id_token") |> result.replace_error("Missing id_token"),
   )
   use _state <- result.try(validate_oidc_state(params, session_state))
-  use #(registration_id, registration) <- result.try(peek_validate_registration(
-    id_token,
-    provider,
-  ))
+  use registration <- result.try(peek_validate_registration(id_token, provider))
   use claims <- result.try(verify_token(id_token, registration.keyset_url))
   use _claims <- result.try(validate_deployment(
     claims,
     provider,
-    registration_id,
+    registration.issuer,
+    registration.client_id,
   ))
   use _claims <- result.try(validate_timestamps(claims))
   use _claims <- result.try(validate_nonce(claims, provider))
@@ -154,11 +152,10 @@ fn validate_oidc_state(params, session_state) {
 fn peek_validate_registration(
   id_token: String,
   provider: DataProvider,
-) -> Result(#(Int, Registration), String) {
+) -> Result(Registration, String) {
   use #(issuer, client_id) <- result.try(peek_issuer_client_id(id_token))
 
-  data_provider.get_registration_by(provider, issuer, client_id)
-  |> result.replace_error("Invalid registration")
+  data_provider.get_registration(provider, issuer, client_id)
 }
 
 fn peek_issuer_client_id(id_token) {
@@ -264,7 +261,8 @@ fn fetch_jwk(keyset_url, kid) {
 fn validate_deployment(
   claims: Claims,
   provider: DataProvider,
-  registration_id: Int,
+  issuer: String,
+  client_id: String,
 ) {
   use deployment_id <- result.try(get_claim(
     claims,
@@ -272,18 +270,7 @@ fn validate_deployment(
     decode.string,
   ))
 
-  case data_provider.get_deployment(provider, registration_id, deployment_id) {
-    Ok(#(_, deployment)) -> Ok(deployment)
-
-    Error(_) -> {
-      logger.error_meta(
-        "Failed to get deployment for registration_id and deployment_id",
-        #(registration_id, deployment_id),
-      )
-
-      Error("Invalid deployment")
-    }
-  }
+  data_provider.get_deployment(provider, issuer, client_id, deployment_id)
 }
 
 fn validate_timestamps(claims: Claims) {

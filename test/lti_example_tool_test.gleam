@@ -3,7 +3,6 @@ import gleam/result
 import gleam/string
 import gleeunit
 import gleeunit/should
-import lti/data_provider
 import lti/deployment.{Deployment}
 import lti/providers/memory_provider
 import lti/registration.{Registration}
@@ -17,7 +16,9 @@ pub fn main() {
 }
 
 fn app_context() {
-  let assert Ok(lti_data_provider) = memory_provider.start()
+  let assert Ok(memory_provider) = memory_provider.start()
+  let assert Ok(lti_data_provider) =
+    memory_provider.data_provider(memory_provider)
 
   AppContext(
     env: app_context.Test,
@@ -26,6 +27,7 @@ fn app_context() {
     db: database.connect("lti_example_tool_test"),
     static_directory: "static_directory",
     lti_data_provider: lti_data_provider,
+    memory_provider: memory_provider,
   )
 }
 
@@ -47,11 +49,11 @@ pub fn get_home_page_test() {
 
 pub fn login_test() {
   let ctx = app_context()
-  let AppContext(lti_data_provider: lti_data_provider, ..) = ctx
+  let AppContext(memory_provider: memory_provider, ..) = ctx
 
   let assert Ok(#(registration_id, registration)) =
-    data_provider.create_registration(
-      lti_data_provider,
+    memory_provider.create_registration(
+      memory_provider,
       Registration(
         name: "Example Registration",
         issuer: "http://example.com",
@@ -63,8 +65,8 @@ pub fn login_test() {
     )
 
   let assert Ok(_deployment) =
-    data_provider.create_deployment(
-      lti_data_provider,
+    memory_provider.create_deployment(
+      memory_provider,
       Deployment(
         deployment_id: "some-deployment-id",
         registration_id: registration_id,
