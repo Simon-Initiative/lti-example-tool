@@ -7,7 +7,7 @@ import lti/deployment.{Deployment}
 import lti/registration.{type Registration, Registration}
 import lti_example_tool/app_context.{type AppContext}
 import lti_example_tool/html.{render_page} as _
-import lti_example_tool/html/components.{Link, LinkDanger, Primary, Secondary}
+import lti_example_tool/html/components.{DangerLink, Link, Primary, Secondary}
 import lti_example_tool/html/forms
 import lti_example_tool/html/tables.{Column}
 import lti_example_tool/utils/common.{try_with} as _
@@ -45,7 +45,7 @@ pub fn index(app: AppContext) -> Response {
   render_page("All Platforms", [
     div([class("flex flex-row justify-end mb-4")], [
       components.link(Primary, [href("/platforms/new")], [
-        text("Create Platform"),
+        text("Register Platform"),
       ]),
     ]),
     tables.table(
@@ -82,7 +82,7 @@ pub fn index(app: AppContext) -> Response {
 }
 
 pub fn new() -> Response {
-  render_page("Create Platform", [
+  render_page("Register Platform", [
     components.card([class("max-w-sm mx-auto")], [
       form([method("post"), action("/platforms")], [
         div([class("flex flex-col")], [
@@ -94,7 +94,7 @@ pub fn new() -> Response {
           forms.labeled_input("Keyset URL", "keyset_url"),
           forms.labeled_input("Deployment ID", "deployment_id"),
           components.button(Primary, [class("my-8"), type_("submit")], [
-            text("Create"),
+            text("Register"),
           ]),
           components.link(
             Secondary,
@@ -173,7 +173,7 @@ pub fn show(req: Request, app: AppContext, id: String) -> Response {
     or_else: fn(_) { wisp.not_found() },
   )
 
-  render_page("Platform Details", [
+  render_page("Platform Registration Details", [
     div([class("flex flex-col")], [
       div([class("text-2xl font-bold")], [text(registration.name)]),
       div([class("text-gray-500")], [text(registration.issuer)]),
@@ -191,7 +191,7 @@ pub fn show(req: Request, app: AppContext, id: String) -> Response {
         ],
         [
           div([class("flex flex-row")], [
-            components.button(LinkDanger, [class("ml-2"), type_("submit")], [
+            components.button(DangerLink, [class("ml-2"), type_("submit")], [
               text("Delete"),
             ]),
           ]),
