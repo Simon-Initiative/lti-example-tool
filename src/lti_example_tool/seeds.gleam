@@ -92,20 +92,19 @@ fn process_platform(node: glaml.Node, db) -> Result(Nil, String) {
             keyset_url,
           ),
         )
-        |> result.map_error(fn(e) {
-          logger.error_meta("Failed to create registration", e)
-
-          "Failed to create registration"
-        }),
+        |> result.map_error(database.humanize_error),
       )
-      use _deployment <- result.try(
+
+      use deployment_id <- result.try(
         deployments.insert(db, Deployment(deployment_id, registration_id))
-        |> result.replace_error("Failed to create deployment"),
+        |> result.map_error(database.humanize_error),
       )
 
       logger.info(
         "Created platform with registration ID: "
-        <> int.to_string(registration_id),
+        <> int.to_string(registration_id)
+        <> ", deployment ID: "
+        <> int.to_string(deployment_id),
       )
 
       Ok(Nil)

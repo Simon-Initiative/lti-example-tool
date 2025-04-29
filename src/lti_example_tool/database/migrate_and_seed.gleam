@@ -26,17 +26,19 @@ pub fn main() {
     ["seed"] -> {
       let db = database.connect("lti_example_tool")
 
-      let assert Ok(_) = seed(db)
+      let _ = seed(db)
 
       database.disconnect(db)
 
       Nil
     }
     ["setup"] -> {
+      create_database("lti_example_tool")
+
       let db = database.connect("lti_example_tool")
 
       let assert Ok(_) = migrate(db)
-      let assert Ok(_) = seed(db)
+      let _ = seed(db)
 
       database.disconnect(db)
 
@@ -246,11 +248,10 @@ fn lti_example_tool_migrations() -> List(Migration) {
           CREATE TABLE deployments (
             id SERIAL PRIMARY KEY,
             deployment_id TEXT,
-            platform_id INT,
+            platform_id INT REFERENCES platforms(id),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(platform_id, deployment_id),
-            FOREIGN KEY (platform_id) REFERENCES platforms(id)
+            UNIQUE(deployment_id, platform_id)
           );
         "
         pog.query(sql) |> pog.returning(decode.dynamic) |> pog.execute(conn)
@@ -290,9 +291,34 @@ fn lti_example_tool_migrations() -> List(Migration) {
 fn seed(db: Connection) {
   logger.info("Seeding database...")
 
-  use _ <- result.try(seeds.load(db))
+  // create a new transaction for running seeds
+  let assert Ok(_) =
+    pog.query("BEGIN")
+    |> pog.returning(decode.dynamic)
+    |> pog.execute(db)
 
-  logger.info("Database seeded.")
+  case seeds.load(db) {
+    Ok(_) -> {
+      // commit transaction
+      let assert Ok(_) =
+        pog.query("COMMIT")
+        |> pog.returning(decode.dynamic)
+        |> pog.execute(db)
 
-  Ok(Nil)
+      logger.info("Database seeded.")
+
+      Ok(Nil)
+    }
+    Error(e) -> {
+      // rollback transaction
+      let assert Ok(_) =
+        pog.query("ROLLBACK")
+        |> pog.returning(decode.dynamic)
+        |> pog.execute(db)
+
+      logger.error("Failed to seed database: " <> e)
+
+      Error(e)
+    }
+  }
 }

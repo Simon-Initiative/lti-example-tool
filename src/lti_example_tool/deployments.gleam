@@ -55,10 +55,11 @@ pub fn get_by_issuer_client_id_deployment_id(
 }
 
 pub fn insert(db: Database, deployment: Deployment) {
-  "INSERT INTO deployments (deployment_id, platform_id) VALUES ($1, $2)"
+  "INSERT INTO deployments (deployment_id, platform_id) VALUES ($1, $2) RETURNING id"
   |> pog.query()
   |> pog.parameter(pog.text(deployment.deployment_id))
   |> pog.parameter(pog.int(deployment.registration_id))
+  |> pog.returning(decode.at([0], decode.int))
   |> pog.execute(db)
   |> one()
 }

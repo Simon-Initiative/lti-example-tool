@@ -1,5 +1,7 @@
 import birl.{type Time}
 import gleam/dynamic/decode
+import gleam/int
+import gleam/list
 import gleam/option.{Some}
 import gleam/result
 import gleam/string
@@ -46,7 +48,7 @@ pub type Record(a) {
 
 pub type DatabaseError {
   QueryError(e: pog.QueryError)
-  ExpectedOneRow
+  ExpectedSingleRow(num_rows: Int)
 }
 
 pub fn count(query_result: Result(pog.Returned(a), pog.QueryError)) {
@@ -66,8 +68,8 @@ pub fn one(query_result: Result(pog.Returned(a), pog.QueryError)) {
   |> result.map_error(QueryError)
   |> result.then(fn(returned) {
     case returned.rows {
-      [row, ..] -> Ok(row)
-      _ -> Error(ExpectedOneRow)
+      [row] -> Ok(row)
+      rows -> Error(ExpectedSingleRow(list.length(rows)))
     }
   })
 }
@@ -75,7 +77,8 @@ pub fn one(query_result: Result(pog.Returned(a), pog.QueryError)) {
 pub fn humanize_error(error: DatabaseError) {
   case error {
     QueryError(e) -> "Query error: " <> string.inspect(e)
-    ExpectedOneRow -> "Expected one row, but got none"
+    ExpectedSingleRow(num_rows) ->
+      "Expected a single row but got " <> int.to_string(num_rows) <> " rows"
   }
 }
 
