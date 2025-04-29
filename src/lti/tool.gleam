@@ -93,7 +93,7 @@ fn validate_registration(
   use issuer <- result.try(dict.get(params, "iss"))
   use client_id <- result.try(dict.get(params, "client_id"))
 
-  data_provider.get_registration(provider, issuer, client_id)
+  data_provider.get_registration_by(provider, issuer, client_id)
   |> result.map(tables.value)
 }
 
@@ -153,7 +153,7 @@ fn validate_launch_registration(
 ) -> Result(#(Int, Registration), String) {
   use #(issuer, client_id) <- result.try(peek_issuer_client_id(id_token))
 
-  data_provider.get_registration(provider, issuer, client_id)
+  data_provider.get_registration_by(provider, issuer, client_id)
   |> result.replace_error("Invalid registration")
 }
 

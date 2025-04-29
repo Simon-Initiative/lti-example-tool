@@ -100,7 +100,15 @@ fn handle_message(
       actor.continue(State(..state, registrations: updated_registrations))
     }
 
-    data_provider.GetRegistration(issuer, client_id, reply_with) -> {
+    data_provider.GetRegistration(id, reply_with) -> {
+      let record = tables.get(state.registrations, id)
+
+      actor.send(reply_with, record)
+
+      actor.continue(state)
+    }
+
+    data_provider.GetRegistrationBy(issuer, client_id, reply_with) -> {
       let record =
         tables.get_by(state.registrations, fn(registration) {
           registration.issuer == issuer && registration.client_id == client_id
@@ -109,6 +117,18 @@ fn handle_message(
       actor.send(reply_with, record)
 
       actor.continue(state)
+    }
+
+    data_provider.GetAllRegistrations(reply_with) -> {
+      actor.send(reply_with, state.registrations.records)
+
+      actor.continue(state)
+    }
+
+    data_provider.DeleteRegistration(id) -> {
+      let updated_registrations = tables.delete(state.registrations, id)
+
+      actor.continue(State(..state, registrations: updated_registrations))
     }
 
     data_provider.CreateDeployment(deployment, reply_with) -> {

@@ -26,10 +26,16 @@ pub type DataProviderMessage {
     reply_with: Subject(Result(#(Int, Registration), Nil)),
   )
   GetRegistration(
+    id: Int,
+    reply_with: Subject(Result(#(Int, Registration), Nil)),
+  )
+  GetRegistrationBy(
     issuer: String,
     client_id: String,
     reply_with: Subject(Result(#(Int, Registration), Nil)),
   )
+  GetAllRegistrations(reply_with: Subject(List(#(Int, Registration))))
+  DeleteRegistration(id: Int)
   CreateDeployment(
     deployment: Deployment,
     reply_with: Subject(Result(#(Int, Deployment), Nil)),
@@ -73,8 +79,22 @@ pub fn create_registration(provider, registration) {
   process.call(provider, CreateRegistration(registration, _), call_timeout)
 }
 
-pub fn get_registration(provider, issuer, client_id) {
-  process.call(provider, GetRegistration(issuer, client_id, _), call_timeout)
+pub fn list_registrations(provider) {
+  process.call(provider, GetAllRegistrations, call_timeout)
+}
+
+pub fn get_registration(provider, id) {
+  process.call(provider, GetRegistration(id, _), call_timeout)
+}
+
+pub fn get_registration_by(provider, issuer, client_id) {
+  process.call(provider, GetRegistrationBy(issuer, client_id, _), call_timeout)
+}
+
+pub fn delete_registration(provider, id) {
+  process.send(provider, DeleteRegistration(id))
+
+  Ok(id)
 }
 
 pub fn create_deployment(provider, deployment) {

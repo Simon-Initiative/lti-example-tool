@@ -2,20 +2,17 @@ import gleam/http.{Get, Post}
 import gleam/int
 import gleam/list
 import gleam/result
-import gleam/string
-import gleam/string_tree
 import lti/data_provider
 import lti/deployment.{Deployment}
-import lti/registration.{Registration}
+import lti/registration.{type Registration, Registration}
 import lti_example_tool/app_context.{type AppContext}
 import lti_example_tool/html.{render_page} as _
-import lti_example_tool/html/buttons
-import lti_example_tool/html/components
+import lti_example_tool/html/components.{Link, LinkDanger, Primary}
 import lti_example_tool/html/forms
-import lti_example_tool/platforms
+import lti_example_tool/html/tables.{Column}
 import lti_example_tool/utils/common.{try_with} as _
-import lustre/attribute.{action, class, method, type_}
-import lustre/element/html.{div, form, h1, text}
+import lustre/attribute.{action, class, href, method, type_}
+import lustre/element/html.{div, form, text}
 import wisp.{type Request, type Response}
 
 pub fn resources(req: Request, app: AppContext) -> Response {
@@ -29,18 +26,57 @@ pub fn resources(req: Request, app: AppContext) -> Response {
 
     Get, ["platforms", id] -> show(req, app, id)
 
+    Post, ["platforms", id, "delete"] -> delete(req, app, id)
+
     _, _ -> wisp.method_not_allowed([Get, Post])
   }
 }
 
 pub fn index(app: AppContext) -> Response {
-  let assert Ok(platforms) = platforms.all(app.db)
+  let registrations =
+    data_provider.list_registrations(app.lti_data_provider)
+    |> list.sort(fn(a, b) {
+      let #(id_a, _registration_a) = a
+      let #(id_b, _registration_b) = b
 
-  let html =
-    string_tree.from_string("Platforms" <> "\n" <> string.inspect(platforms))
+      int.compare(id_a, id_b)
+    })
 
-  wisp.ok()
-  |> wisp.html_body(html)
+  render_page("All Platforms", [
+    div([class("flex flex-row justify-end")], [
+      components.link(Link, [href("/platforms/new")], [text("Create Platform")]),
+    ]),
+    tables.table(
+      [],
+      [
+        Column("ID", fn(record: #(Int, Registration)) {
+          let #(id, _registration) = record
+          text(int.to_string(id))
+        }),
+        Column("Name", fn(record: #(Int, Registration)) {
+          let #(_id, registration) = record
+          text(registration.name)
+        }),
+        Column("Issuer", fn(record: #(Int, Registration)) {
+          let #(_id, registration) = record
+          text(registration.issuer)
+        }),
+        Column("Client ID", fn(record: #(Int, Registration)) {
+          let #(_id, registration) = record
+          text(registration.client_id)
+        }),
+        Column("Actions", fn(record: #(Int, Registration)) {
+          let #(id, _registration) = record
+          div([], [
+            components.link(Link, [href("/platforms/" <> int.to_string(id))], [
+              text("View"),
+            ]),
+          ])
+        }),
+      ],
+      registrations,
+    ),
+  ])
 }
 
 pub fn new() -> Response {
@@ -55,7 +91,14 @@ pub fn new() -> Response {
           forms.labeled_input("Access Token Endpoint", "access_token_endpoint"),
           forms.labeled_input("Keyset URL", "keyset_url"),
           forms.labeled_input("Deployment ID", "deployment_id"),
-          buttons.primary([class("my-8"), type_("submit")], [text("Create")]),
+          components.button(Primary, [class("my-8"), type_("submit")], [
+            text("Create"),
+          ]),
+          components.link(
+            Link,
+            [class("my-2 text-center"), href("/platforms")],
+            [text("Cancel")],
+          ),
         ]),
       ]),
     ]),
@@ -65,10 +108,6 @@ pub fn new() -> Response {
 pub fn create(req: Request, app: AppContext) -> Response {
   use formdata <- wisp.require_form(req)
 
-  // The list and result module are used here to extract the values from the
-  // form data.
-  // Alternatively you could also pattern match on the list of values (they are
-  // sorted into alphabetical order), or use a HTML form library.
   let result = {
     use name <- result.try(list.key_find(formdata.values, "name"))
     use issuer <- result.try(list.key_find(formdata.values, "issuer"))
@@ -127,11 +166,51 @@ pub fn show(req: Request, app: AppContext, id: String) -> Response {
     wisp.bad_request()
   })
 
-  let assert Ok(platforms) = platforms.get(app.db, id)
+  use #(_id, registration) <- try_with(
+    data_provider.get_registration(app.lti_data_provider, id),
+    or_else: fn(_) { wisp.not_found() },
+  )
 
-  let html =
-    string_tree.from_string("Platforms" <> "\n" <> string.inspect(platforms))
+  render_page("Platform Details", [
+    div([class("flex flex-col")], [
+      div([class("text-2xl font-bold")], [text(registration.name)]),
+      div([class("text-gray-500")], [text(registration.issuer)]),
+      div([class("text-gray-500")], [text(registration.client_id)]),
+      div([class("text-gray-500")], [text(registration.auth_endpoint)]),
+      div([class("text-gray-500")], [text(registration.access_token_endpoint)]),
+      div([class("text-gray-500")], [text(registration.keyset_url)]),
+    ]),
+    div([class("flex flex-row")], [
+      components.link(Link, [href("/platforms")], [text("Back to Platforms")]),
+      form(
+        [
+          method("post"),
+          action("/platforms/" <> int.to_string(id) <> "/delete"),
+        ],
+        [
+          div([class("flex flex-row")], [
+            components.button(LinkDanger, [class("ml-2"), type_("submit")], [
+              text("Delete"),
+            ]),
+          ]),
+        ],
+      ),
+    ]),
+  ])
+}
 
-  wisp.ok()
-  |> wisp.html_body(html)
+pub fn delete(req: Request, app: AppContext, id: String) -> Response {
+  use <- wisp.require_method(req, Post)
+
+  use id <- try_with(int.parse(id), or_else: fn(_) {
+    wisp.log_error("Invalid platform ID")
+    wisp.bad_request()
+  })
+
+  use _ <- try_with(
+    data_provider.delete_registration(app.lti_data_provider, id),
+    or_else: fn(_) { wisp.not_found() },
+  )
+
+  wisp.redirect("/platforms")
 }
