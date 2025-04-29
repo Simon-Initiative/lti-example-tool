@@ -122,17 +122,18 @@ pub fn validate_launch(
     dict.get(params, "id_token") |> result.replace_error("Missing id_token"),
   )
   use _state <- result.try(validate_oidc_state(params, session_state))
-  use #(registration_id, registration) <- result.try(
-    validate_launch_registration(provider, id_token),
-  )
-  use claims <- result.try(validate_id_token(id_token, registration.keyset_url))
+  use #(registration_id, registration) <- result.try(peek_validate_registration(
+    id_token,
+    provider,
+  ))
+  use claims <- result.try(verify_token(id_token, registration.keyset_url))
   use _claims <- result.try(validate_deployment(
+    claims,
     provider,
     registration_id,
-    claims,
   ))
   use _claims <- result.try(validate_timestamps(claims))
-  use _claims <- result.try(validate_nonce(provider, claims))
+  use _claims <- result.try(validate_nonce(claims, provider))
   use _claims <- result.try(validate_message(claims))
 
   Ok(claims)
@@ -150,9 +151,9 @@ fn validate_oidc_state(params, session_state) {
   }
 }
 
-fn validate_launch_registration(
-  provider: DataProvider,
+fn peek_validate_registration(
   id_token: String,
+  provider: DataProvider,
 ) -> Result(#(Int, Registration), String) {
   use #(issuer, client_id) <- result.try(peek_issuer_client_id(id_token))
 
@@ -191,7 +192,7 @@ fn peek_header_claim(jwt_string, header: String, decoder: Decoder(a)) {
   }
 }
 
-fn validate_id_token(id_token, keyset_url) {
+fn verify_token(id_token, keyset_url) {
   use kid <- result.try(
     peek_header_claim(id_token, "kid", decode.string)
     |> result.replace_error("Missing kid"),
@@ -261,9 +262,9 @@ fn fetch_jwk(keyset_url, kid) {
 }
 
 fn validate_deployment(
+  claims: Claims,
   provider: DataProvider,
   registration_id: Int,
-  claims: Claims,
 ) {
   use deployment_id <- result.try(get_claim(
     claims,
@@ -311,7 +312,7 @@ fn validate_timestamps(claims: Claims) {
   Ok(claims)
 }
 
-fn validate_nonce(provider: DataProvider, claims: Claims) {
+fn validate_nonce(claims: Claims, provider: DataProvider) {
   use nonce <- result.try(get_claim(claims, "nonce", decode.string))
 
   case data_provider.validate_nonce(provider, nonce) {
