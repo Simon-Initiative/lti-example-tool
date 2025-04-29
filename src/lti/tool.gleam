@@ -20,11 +20,17 @@ import lti/registration.{type Registration}
 import lti_example_tool/utils/common.{try_with}
 import lti_example_tool/utils/logger
 
+pub type State =
+  String
+
+pub type RedirectUrl =
+  String
+
 /// Initiates the OIDC login flow
 pub fn oidc_login(
   provider: DataProvider,
   params: Dict(String, String),
-) -> Result(#(String, String), String) {
+) -> Result(#(State, RedirectUrl), String) {
   use _params <- result.try(validate_issuer_exists(params))
   use target_link_uri <- try_with(dict.get(params, "target_link_uri"), fn(_) {
     Error("Missing target_link_uri")
@@ -111,7 +117,7 @@ pub fn validate_launch(
   provider: DataProvider,
   params: Dict(String, String),
   session_state: String,
-) {
+) -> Result(Claims, String) {
   use id_token <- result.try(
     dict.get(params, "id_token") |> result.replace_error("Missing id_token"),
   )
@@ -119,20 +125,17 @@ pub fn validate_launch(
   use #(registration_id, registration) <- result.try(
     validate_launch_registration(provider, id_token),
   )
-  use jwt_body <- result.try(validate_id_token(
-    id_token,
-    registration.keyset_url,
-  ))
-  use _jwt_body <- result.try(validate_deployment(
+  use claims <- result.try(validate_id_token(id_token, registration.keyset_url))
+  use _claims <- result.try(validate_deployment(
     provider,
     registration_id,
-    jwt_body,
+    claims,
   ))
-  use _jwt_body <- result.try(validate_timestamps(jwt_body))
-  use _jwt_body <- result.try(validate_nonce(provider, jwt_body))
-  use _jwt_body <- result.try(validate_message(jwt_body))
+  use _claims <- result.try(validate_timestamps(claims))
+  use _claims <- result.try(validate_nonce(provider, claims))
+  use _claims <- result.try(validate_message(claims))
 
-  Ok(jwt_body)
+  Ok(claims)
 }
 
 fn validate_oidc_state(params, session_state) {
