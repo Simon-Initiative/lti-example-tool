@@ -7,7 +7,7 @@ import lti/deployment.{Deployment}
 import lti/registration.{type Registration, Registration}
 import lti_example_tool/app_context.{type AppContext}
 import lti_example_tool/html.{render_page} as _
-import lti_example_tool/html/components.{Link, LinkDanger, Primary}
+import lti_example_tool/html/components.{Link, LinkDanger, Primary, Secondary}
 import lti_example_tool/html/forms
 import lti_example_tool/html/tables.{Column}
 import lti_example_tool/utils/common.{try_with} as _
@@ -44,7 +44,9 @@ pub fn index(app: AppContext) -> Response {
 
   render_page("All Platforms", [
     div([class("flex flex-row justify-end")], [
-      components.link(Link, [href("/platforms/new")], [text("Create Platform")]),
+      components.link(Primary, [href("/platforms/new")], [
+        text("Create Platform"),
+      ]),
     ]),
     tables.table(
       [],
@@ -95,7 +97,7 @@ pub fn new() -> Response {
             text("Create"),
           ]),
           components.link(
-            Link,
+            Secondary,
             [class("my-2 text-center"), href("/platforms")],
             [text("Cancel")],
           ),
