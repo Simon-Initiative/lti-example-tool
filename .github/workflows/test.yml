@@ -21,7 +21,7 @@ jobs:
           otp-version: "27.1.2"
           gleam-version: "1.10.0"
           rebar3-version: "3"
-          # elixir-version: "1"
+          elixir-version: "1.18.3"
       - run: gleam deps download
       - run: gleam build
       - run: gleam run -m lti_example_tool/database/migrate_and_seed test.setup
