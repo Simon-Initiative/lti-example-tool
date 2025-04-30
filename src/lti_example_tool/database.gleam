@@ -49,6 +49,7 @@ pub type Record(a) {
 pub type DatabaseError {
   QueryError(e: pog.QueryError)
   ExpectedSingleRow(num_rows: Int)
+  TransactionError(e: pog.TransactionError)
 }
 
 pub fn count(query_result: Result(pog.Returned(a), pog.QueryError)) {
@@ -74,11 +75,33 @@ pub fn one(query_result: Result(pog.Returned(a), pog.QueryError)) {
   })
 }
 
+pub fn transaction(db: Database, tx: fn(Database) -> Result(a, DatabaseError)) {
+  pog.transaction(db, fn(db) { tx(db) |> result.map_error(humanize_error) })
+  |> result.map_error(TransactionError)
+}
+
+pub fn savepoint(db: Database, name: String) {
+  // create a new savepoint
+  let assert Ok(_) =
+    pog.query("SAVEPOINT " <> name)
+    |> pog.returning(decode.dynamic)
+    |> pog.execute(db)
+}
+
+pub fn rollback_to_savepoint(db: Database, name: String) {
+  // rollback to the savepoint
+  let assert Ok(_) =
+    pog.query("ROLLBACK TO SAVEPOINT " <> name)
+    |> pog.returning(decode.dynamic)
+    |> pog.execute(db)
+}
+
 pub fn humanize_error(error: DatabaseError) {
   case error {
     QueryError(e) -> "Query error: " <> string.inspect(e)
     ExpectedSingleRow(num_rows) ->
       "Expected a single row but got " <> int.to_string(num_rows) <> " rows"
+    TransactionError(e) -> "Transaction error: " <> string.inspect(e)
   }
 }
 

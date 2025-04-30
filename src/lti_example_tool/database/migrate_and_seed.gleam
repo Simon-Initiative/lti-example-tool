@@ -291,31 +291,13 @@ fn lti_example_tool_migrations() -> List(Migration) {
 fn seed(db: Connection) {
   logger.info("Seeding database...")
 
-  // create a new transaction for running seeds
-  let assert Ok(_) =
-    pog.query("BEGIN")
-    |> pog.returning(decode.dynamic)
-    |> pog.execute(db)
-
   case seeds.load(db) {
     Ok(_) -> {
-      // commit transaction
-      let assert Ok(_) =
-        pog.query("COMMIT")
-        |> pog.returning(decode.dynamic)
-        |> pog.execute(db)
-
       logger.info("Database seeded.")
 
       Ok(Nil)
     }
     Error(e) -> {
-      // rollback transaction
-      let assert Ok(_) =
-        pog.query("ROLLBACK")
-        |> pog.returning(decode.dynamic)
-        |> pog.execute(db)
-
       logger.error("Failed to seed database: " <> e)
 
       Error(e)

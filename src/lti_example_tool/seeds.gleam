@@ -1,11 +1,10 @@
 import glaml
 import gleam/dict.{type Dict}
-import gleam/int
 import gleam/list
 import gleam/result
 import gleam/string
 import lti/deployment.{Deployment}
-import lti/registration.{Registration}
+import lti/registration.{type Registration, Registration}
 import lti_example_tool/database.{type Database}
 import lti_example_tool/deployments
 import lti_example_tool/platforms
@@ -26,16 +25,19 @@ pub fn load(db: Database) -> Result(Nil, String) {
     |> result.replace_error("Failed to parse platforms from seeds.yml"),
   )
 
-  process_platforms(platforms, db)
+  use operations <- result.try(process_platforms(platforms, db))
+
+  perform_operations(db, operations)
+  |> result.all()
+  |> result.map(fn(_) { Nil })
+  |> result.map_error(database.humanize_error)
 }
 
-fn process_platforms(node: glaml.Node, db) -> Result(Nil, String) {
+fn process_platforms(node: glaml.Node, db) -> Result(List(Operation), String) {
   case node {
     glaml.NodeSeq(seq) -> {
-      case result.all(list.map(seq, fn(node) { process_platform(node, db) })) {
-        Ok(_) -> Ok(Nil)
-        Error(e) -> Error(e)
-      }
+      list.fold(seq, [], fn(acc, node) { [process_platform(node, db), ..acc] })
+      |> result.all()
     }
     _ -> {
       Error(
@@ -46,7 +48,7 @@ fn process_platforms(node: glaml.Node, db) -> Result(Nil, String) {
   }
 }
 
-fn process_platform(node: glaml.Node, db) -> Result(Nil, String) {
+fn process_platform(node: glaml.Node, db) -> Result(Operation, String) {
   case node {
     glaml.NodeMap(map) -> {
       use values <- result.try(
@@ -80,34 +82,17 @@ fn process_platform(node: glaml.Node, db) -> Result(Nil, String) {
         |> result.replace_error("Missing deployment_id"),
       )
 
-      use registration_id <- result.try(
-        platforms.insert(
-          db,
-          Registration(
-            name,
-            issuer,
-            client_id,
-            auth_endpoint,
-            access_token_endpoint,
-            keyset_url,
-          ),
-        )
-        |> result.map_error(database.humanize_error),
-      )
-
-      use deployment_id <- result.try(
-        deployments.insert(db, Deployment(deployment_id, registration_id))
-        |> result.map_error(database.humanize_error),
-      )
-
-      logger.info(
-        "Created platform with registration ID: "
-        <> int.to_string(registration_id)
-        <> ", deployment ID: "
-        <> int.to_string(deployment_id),
-      )
-
-      Ok(Nil)
+      Ok(CreateRegistration(
+        Registration(
+          name,
+          issuer,
+          client_id,
+          auth_endpoint,
+          access_token_endpoint,
+          keyset_url,
+        ),
+        deployment_id,
+      ))
     }
     _ -> {
       Error(
@@ -142,4 +127,42 @@ fn string_node(
     glaml.NodeStr(string) -> cb(string)
     _ -> Error("Expected a NodeStr but got: " <> string.inspect(node))
   }
+}
+
+type Operation {
+  CreateRegistration(registration: Registration, deployment_id: String)
+}
+
+fn perform_operations(db: Database, operations: List(Operation)) {
+  list.map(operations, fn(operation) {
+    case operation {
+      CreateRegistration(registration, deployment_id) -> {
+        use registration_id <- result.try(
+          database.transaction(db, fn(db) { platforms.insert(db, registration) }),
+        )
+
+        logger.info(
+          "Created platform with id: "
+          <> string.inspect(registration_id)
+          <> " and name: "
+          <> registration.name,
+        )
+
+        use deployment_id <- result.try(
+          database.transaction(db, fn(db) {
+            deployments.insert(db, Deployment(deployment_id, registration_id))
+          }),
+        )
+
+        logger.info(
+          "Created registration with id: "
+          <> string.inspect(registration_id)
+          <> " and deployment id: "
+          <> string.inspect(deployment_id),
+        )
+
+        Ok(Nil)
+      }
+    }
+  })
 }
