@@ -15,6 +15,7 @@ pub fn main() {
   logger.configure_backend()
 
   let db_name = load_db_name()
+  let test_db_name = db_name <> "_test"
 
   case argv.load().arguments {
     ["migrate"] -> {
@@ -47,13 +48,24 @@ pub fn main() {
 
       Nil
     }
+    ["test.setup"] -> {
+      create_database(test_db_name)
+
+      let db = database.connect(test_db_name)
+
+      let assert Ok(_) = migrate(db)
+      let _ = seed(db)
+
+      database.disconnect(db)
+
+      Nil
+    }
     ["reset"] -> {
       let assert Ok(_) = reset(db_name)
 
       Nil
     }
     ["test.reset"] -> {
-      let test_db_name = db_name <> "_test"
       let assert Ok(_) = reset(test_db_name)
 
       Nil
@@ -109,9 +121,12 @@ fn reset(db_name: String) {
   let db = database.connect(db_name)
 
   use _ <- result.try(migrate(db))
-  use _ <- result.try(seed(db))
+
+  let _ = seed(db)
 
   database.disconnect(db)
+
+  logger.info("Database reset.")
 
   Ok(Nil)
 }
