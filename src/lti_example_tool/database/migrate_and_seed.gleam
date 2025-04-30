@@ -5,7 +5,7 @@ import gleam/io
 import gleam/list.{Continue, Stop}
 import gleam/result
 import gleam/set
-import lti_example_tool/application.{load_db_name}
+import lti_example_tool/config
 import lti_example_tool/database
 import lti_example_tool/seeds
 import lti_example_tool/utils/logger
@@ -14,7 +14,7 @@ import pog.{type Connection, type Returned}
 pub fn main() {
   logger.configure_backend()
 
-  let db_name = load_db_name()
+  let db_name = config.db_name()
   let test_db_name = db_name <> "_test"
 
   case argv.load().arguments {

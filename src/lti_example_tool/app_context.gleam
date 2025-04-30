@@ -1,11 +1,6 @@
 import lti/data_provider.{type DataProvider}
 import lti_example_tool/database.{type Database}
-
-pub type Env {
-  Dev
-  Test
-  Prod
-}
+import lti_example_tool/env.{type Env}
 
 pub type AppContext {
   AppContext(
@@ -16,11 +11,4 @@ pub type AppContext {
     static_directory: String,
     lti_data_provider: DataProvider,
   )
-}
-
-pub fn env_exec(current: Env, target: Env, cb: fn() -> Nil) -> Nil {
-  case current == target {
-    True -> cb()
-    False -> Nil
-  }
 }

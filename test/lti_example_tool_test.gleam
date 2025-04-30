@@ -8,6 +8,7 @@ import lti/providers/memory_provider
 import lti/registration.{Registration}
 import lti_example_tool/app_context.{AppContext}
 import lti_example_tool/database
+import lti_example_tool/env
 import lti_example_tool/router
 import wisp/testing
 
@@ -23,7 +24,7 @@ fn setup() {
   #(
     memory_provider,
     AppContext(
-      env: app_context.Test,
+      env: env.Test,
       port: 8080,
       secret_key_base: "secret_key_base",
       db: database.connect("lti_example_tool_test"),
