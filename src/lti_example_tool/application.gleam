@@ -2,7 +2,9 @@ import envoy
 import gleam/int
 import gleam/result
 import gleam/string
-import lti_example_tool/app_context.{type AppContext, type Env, AppContext}
+import lti_example_tool/app_context.{
+  type AppContext, type Env, AppContext, env_exec,
+}
 import lti_example_tool/database
 import lti_example_tool/db_provider
 import lti_example_tool/utils/devtools
@@ -11,20 +13,24 @@ import wisp
 
 pub fn setup() -> AppContext {
   let env = load_env()
-  let secret_key_base = load_secret_key_base()
+  let port = load_port()
+  let static_directory = static_directory()
+  let secret_key_base = load_secret_key_base(env)
 
-  let db = database.connect("lti_example_tool")
+  let db_name = load_db_name()
+
+  let db = database.connect(db_name)
 
   let assert Ok(lti_data_provider) = db_provider.data_provider(db)
 
-  let _ = devtools.maybe_start_devtools(env)
+  env_exec(env, app_context.Dev, fn() { devtools.start() })
 
   AppContext(
-    env: load_env(),
-    port: load_port(),
+    env: env,
+    port: port,
     secret_key_base: secret_key_base,
     db: db,
-    static_directory: static_directory(),
+    static_directory: static_directory,
     lti_data_provider: lti_data_provider,
   )
 }
@@ -49,17 +55,26 @@ fn load_port() -> Int {
   |> result.unwrap(3000)
 }
 
-fn load_secret_key_base() -> String {
+fn load_secret_key_base(env) -> String {
   case envoy.get("SECRET_KEY_BASE") {
     Ok(secret_key_base) -> secret_key_base
     Error(_) -> {
-      logger.warn(
-        "SECRET_KEY_BASE is not set, using default which is not secure. "
-        <> "If you are running in production, please set this environment variable.",
-      )
+      env_exec(env, app_context.Prod, fn() {
+        logger.warn(
+          "SECRET_KEY_BASE is not set, using default which is not secure. "
+          <> "You appear to be running in production, please set this environment variable.",
+        )
+      })
 
       "change_me"
     }
+  }
+}
+
+pub fn load_db_name() -> String {
+  case envoy.get("DB_NAME") {
+    Ok(db_name) -> db_name
+    Error(_) -> "lti_example_tool"
   }
 }
 

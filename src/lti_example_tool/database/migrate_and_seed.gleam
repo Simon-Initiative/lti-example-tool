@@ -5,6 +5,7 @@ import gleam/io
 import gleam/list.{Continue, Stop}
 import gleam/result
 import gleam/set
+import lti_example_tool/application.{load_db_name}
 import lti_example_tool/database
 import lti_example_tool/seeds
 import lti_example_tool/utils/logger
@@ -13,9 +14,11 @@ import pog.{type Connection, type Returned}
 pub fn main() {
   logger.configure_backend()
 
+  let db_name = load_db_name()
+
   case argv.load().arguments {
     ["migrate"] -> {
-      let db = database.connect("lti_example_tool")
+      let db = database.connect(db_name)
 
       let assert Ok(_) = migrate(db)
 
@@ -24,7 +27,7 @@ pub fn main() {
       Nil
     }
     ["seed"] -> {
-      let db = database.connect("lti_example_tool")
+      let db = database.connect(db_name)
 
       let _ = seed(db)
 
@@ -33,9 +36,9 @@ pub fn main() {
       Nil
     }
     ["setup"] -> {
-      create_database("lti_example_tool")
+      create_database(db_name)
 
-      let db = database.connect("lti_example_tool")
+      let db = database.connect(db_name)
 
       let assert Ok(_) = migrate(db)
       let _ = seed(db)
@@ -45,12 +48,13 @@ pub fn main() {
       Nil
     }
     ["reset"] -> {
-      let assert Ok(_) = reset("lti_example_tool")
+      let assert Ok(_) = reset(db_name)
 
       Nil
     }
     ["test.reset"] -> {
-      let assert Ok(_) = reset("lti_example_tool_test")
+      let test_db_name = db_name <> "_test"
+      let assert Ok(_) = reset(test_db_name)
 
       Nil
     }

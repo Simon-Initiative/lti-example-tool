@@ -17,3 +17,10 @@ pub type AppContext {
     lti_data_provider: DataProvider,
   )
 }
+
+pub fn env_exec(current: Env, target: Env, cb: fn() -> Nil) -> Nil {
+  case current == target {
+    True -> cb()
+    False -> Nil
+  }
+}
