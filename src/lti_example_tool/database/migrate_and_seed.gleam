@@ -213,11 +213,11 @@ fn run_migrations(
 fn lti_example_tool_migrations() -> List(Migration) {
   [
     Migration(
-      name: "create_platforms_table",
+      name: "create_registrations_table",
       up: fn(conn) {
         let sql =
           "
-          CREATE TABLE platforms (
+          CREATE TABLE registrations (
             id SERIAL PRIMARY KEY,
             name TEXT,
             issuer TEXT,
@@ -235,7 +235,7 @@ fn lti_example_tool_migrations() -> List(Migration) {
       down: fn(conn) {
         let sql =
           "
-          DROP TABLE platforms;
+          DROP TABLE registrations;
         "
         pog.query(sql) |> pog.returning(decode.dynamic) |> pog.execute(conn)
       },
@@ -248,10 +248,10 @@ fn lti_example_tool_migrations() -> List(Migration) {
           CREATE TABLE deployments (
             id SERIAL PRIMARY KEY,
             deployment_id TEXT,
-            platform_id INT REFERENCES platforms(id),
+            registration_id INT REFERENCES registrations(id),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(deployment_id, platform_id)
+            UNIQUE(deployment_id, registration_id)
           );
         "
         pog.query(sql) |> pog.returning(decode.dynamic) |> pog.execute(conn)
@@ -291,7 +291,7 @@ fn lti_example_tool_migrations() -> List(Migration) {
 fn seed(db: Connection) {
   logger.info("Seeding database...")
 
-  case seeds.load(db) {
+  case seeds.load_from_file(db, "seeds.yml") {
     Ok(_) -> {
       logger.info("Database seeded.")
 

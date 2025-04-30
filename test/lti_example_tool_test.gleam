@@ -43,7 +43,7 @@ pub fn get_home_page_test() {
   |> should.equal(303)
 
   response.headers
-  |> list.contains(#("location", "/platforms"))
+  |> list.contains(#("location", "/registrations"))
   |> should.be_true
 
   response.headers
@@ -133,20 +133,20 @@ pub fn page_not_found_test() {
   |> should.equal(404)
 }
 
-pub fn get_platforms_test() {
+pub fn get_registrations_test() {
   let #(_memory_provider, ctx) = setup()
 
-  let request = testing.get("/platforms", [])
+  let request = testing.get("/registrations", [])
   let response = router.handle_request(request, ctx)
 
   response.status
   |> should.equal(200)
 }
 
-pub fn get_platform_test() {
+pub fn get_registration_test() {
   let #(_memory_provider, ctx) = setup()
 
-  let request = testing.get("/platforms/123", [])
+  let request = testing.get("/registrations/123", [])
   let response = router.handle_request(request, ctx)
 
   response.status

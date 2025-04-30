@@ -1,5 +1,5 @@
 # Example seeds. Copy to seeds.yml and modify
-platforms:
+registrations:
   - name: "Platform Name"
     issuer: "https://platform.example.edu"
     client_id: "EXAMPLE_CLIENT_ID"

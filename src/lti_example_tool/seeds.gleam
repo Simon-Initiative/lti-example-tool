@@ -7,12 +7,12 @@ import lti/deployment.{Deployment}
 import lti/registration.{type Registration, Registration}
 import lti_example_tool/database.{type Database}
 import lti_example_tool/deployments
-import lti_example_tool/platforms
+import lti_example_tool/registrations
 import lti_example_tool/utils/logger
 
-pub fn load(db: Database) -> Result(Nil, String) {
+pub fn load_from_file(db: Database, filepath: String) -> Result(Nil, String) {
   use contents <- result.try(
-    glaml.parse_file("seeds.yml")
+    glaml.parse_file(filepath)
     |> result.replace_error("Failed to load seeds.yml"),
   )
 
@@ -20,12 +20,12 @@ pub fn load(db: Database) -> Result(Nil, String) {
     list.first(contents) |> result.replace_error("Failed to parse seeds.yml"),
   )
 
-  use platforms <- result.try(
-    glaml.select_sugar(glaml.document_root(doc), "platforms")
-    |> result.replace_error("Failed to parse platforms from seeds.yml"),
+  use registrations <- result.try(
+    glaml.select_sugar(glaml.document_root(doc), "registrations")
+    |> result.replace_error("Failed to parse registrations from seeds.yml"),
   )
 
-  use operations <- result.try(process_platforms(platforms, db))
+  use operations <- result.try(process_platform_registrations(registrations))
 
   perform_operations(db, operations)
   |> result.all()
@@ -33,22 +33,26 @@ pub fn load(db: Database) -> Result(Nil, String) {
   |> result.map_error(database.humanize_error)
 }
 
-fn process_platforms(node: glaml.Node, db) -> Result(List(Operation), String) {
+fn process_platform_registrations(
+  node: glaml.Node,
+) -> Result(List(Operation), String) {
   case node {
     glaml.NodeSeq(seq) -> {
-      list.fold(seq, [], fn(acc, node) { [process_platform(node, db), ..acc] })
+      list.fold(seq, [], fn(acc, node) {
+        [process_platform_registration(node), ..acc]
+      })
       |> result.all()
     }
     _ -> {
       Error(
-        "Invalid platforms node, expected a sequence but got: "
+        "Invalid registrations node, expected a sequence but got: "
         <> string.inspect(node),
       )
     }
   }
 }
 
-fn process_platform(node: glaml.Node, db) -> Result(Operation, String) {
+fn process_platform_registration(node: glaml.Node) -> Result(Operation, String) {
   case node {
     glaml.NodeMap(map) -> {
       use values <- result.try(
@@ -96,7 +100,7 @@ fn process_platform(node: glaml.Node, db) -> Result(Operation, String) {
     }
     _ -> {
       Error(
-        "Invalid platform node, expected a map but got: "
+        "Invalid registration node, expected a map but got: "
         <> string.inspect(node),
       )
     }
@@ -138,14 +142,9 @@ fn perform_operations(db: Database, operations: List(Operation)) {
     case operation {
       CreateRegistration(registration, deployment_id) -> {
         use registration_id <- result.try(
-          database.transaction(db, fn(db) { platforms.insert(db, registration) }),
-        )
-
-        logger.info(
-          "Created platform with id: "
-          <> string.inspect(registration_id)
-          <> " and name: "
-          <> registration.name,
+          database.transaction(db, fn(db) {
+            registrations.insert(db, registration)
+          }),
         )
 
         use deployment_id <- result.try(
@@ -155,7 +154,7 @@ fn perform_operations(db: Database, operations: List(Operation)) {
         )
 
         logger.info(
-          "Created registration with id: "
+          "Created platform registration with id: "
           <> string.inspect(registration_id)
           <> " and deployment id: "
           <> string.inspect(deployment_id),

@@ -6,7 +6,7 @@ import pog
 fn deployment_decoder() {
   use id <- decode.field(0, decode.int)
   use deployment_id <- decode.field(1, decode.string)
-  use platform_id <- decode.field(2, decode.int)
+  use registration_id <- decode.field(2, decode.int)
 
   use created_at <- decode.field(3, pog.timestamp_decoder())
   use updated_at <- decode.field(4, pog.timestamp_decoder())
@@ -15,7 +15,7 @@ fn deployment_decoder() {
     id,
     created_at,
     updated_at,
-    Deployment(deployment_id, platform_id),
+    Deployment(deployment_id, registration_id),
   ))
 }
 
@@ -43,7 +43,7 @@ pub fn get_by_issuer_client_id_deployment_id(
   deployment_id: String,
 ) {
   "SELECT * FROM deployments d
-   JOIN platforms p ON d.platform_id = p.id
+   JOIN registrations p ON d.registration_id = p.id
    WHERE p.issuer = $1 AND p.client_id = $2 AND d.deployment_id = $3"
   |> pog.query()
   |> pog.parameter(pog.text(issuer))
@@ -55,7 +55,7 @@ pub fn get_by_issuer_client_id_deployment_id(
 }
 
 pub fn insert(db: Database, deployment: Deployment) {
-  "INSERT INTO deployments (deployment_id, platform_id) VALUES ($1, $2) RETURNING id"
+  "INSERT INTO deployments (deployment_id, registration_id) VALUES ($1, $2) RETURNING id"
   |> pog.query()
   |> pog.parameter(pog.text(deployment.deployment_id))
   |> pog.parameter(pog.int(deployment.registration_id))

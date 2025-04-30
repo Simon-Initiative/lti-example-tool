@@ -1,7 +1,7 @@
 import gleam/http.{Get}
 import lti_example_tool/app_context.{type AppContext}
 import lti_example_tool/controllers/lti_controller
-import lti_example_tool/controllers/platform_controller
+import lti_example_tool/controllers/registration_controller
 import lti_example_tool/web
 import wisp.{type Request, type Response}
 
@@ -17,7 +17,7 @@ pub fn handle_request(req: Request, app: AppContext) -> Response {
     [] -> home(req)
 
     // This matches `/comments`.
-    ["platforms", ..] -> platform_controller.resources(req, app)
+    ["registrations", ..] -> registration_controller.resources(req, app)
 
     ["login"] -> lti_controller.oidc_login(req, app)
 
@@ -35,5 +35,5 @@ pub fn handle_request(req: Request, app: AppContext) -> Response {
 fn home(req: Request) -> Response {
   use <- wisp.require_method(req, Get)
 
-  wisp.redirect("/platforms")
+  wisp.redirect("/registrations")
 }
