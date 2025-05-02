@@ -1,14 +1,12 @@
 import gleam/dict
 import gleam/dynamic.{type Dynamic}
 import gleam/dynamic/decode
-import gleam/function
 import gleam/http
 import gleam/http/request
 import gleam/httpc
 import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
-import gleam/pair
 import gleam/result
 import gleam/string
 import gleam/uri
@@ -52,7 +50,7 @@ pub fn fetch_access_token(
       active_jwk,
       registration.access_token_endpoint,
       registration.client_id,
-      // TODO: this should be separate auth_server url for audience
+      // TODO: should this be separate auth_server url for audience?
       Some(registration.auth_endpoint),
     )
 
@@ -144,13 +142,14 @@ fn map_decode_errors_to_dynamic_errors(
   })
 }
 
-fn create_client_assertion(
+pub fn create_client_assertion(
   active_jwk: Jwk,
   auth_token_url: String,
   client_id: String,
   auth_audience: Option(String),
 ) -> String {
-  let #(_, jwk) = jose.generate_key(jose.Rsa(2048)) |> jose.to_map()
+  // let #(_, jwk) = jose.generate_key(jose.Rsa(2048)) |> jose.to_map()
+  let #(_, jwk) = active_jwk |> jwk.to_map()
 
   let jwt =
     dict.from_list([
@@ -163,7 +162,7 @@ fn create_client_assertion(
   let #(_, jose_jwt) = jose.sign(jwk, jwt)
   let #(_, compact_signed) = jose.compact(jose_jwt)
 
-  echo compact_signed
+  compact_signed
 }
 
 fn audience(auth_token_url: String, auth_audience: Option(String)) -> String {

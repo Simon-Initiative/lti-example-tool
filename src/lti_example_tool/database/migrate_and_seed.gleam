@@ -323,11 +323,9 @@ fn lti_example_tool_migrations() -> List(Migration) {
             "
             CREATE TABLE jwks (
               kid TEXT PRIMARY KEY,
-              kty TEXT,
+              typ TEXT,
               alg TEXT,
-              use TEXT,
-              n TEXT,
-              e TEXT,
+              pem TEXT,
               created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
               updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
