@@ -1,19 +1,14 @@
 import gleam/dict.{type Dict}
 import gleam/dynamic.{type Dynamic}
-import gleam/dynamic/decode
 import gleam/function
 import gleam/http
 import gleam/http/cookie
 import gleam/json
 import gleam/list
 import gleam/option.{Some}
-import gleam/result
 import gleam/string
 import lti/jose
 import lti/jwk.{type Jwk}
-import lti/services/access_token
-import lti/services/ags
-import lti/services/nrps
 import lti/tool
 import lti_example_tool/app_context.{type AppContext}
 import lti_example_tool/cookies.{require_cookie, set_cookie}
@@ -21,7 +16,6 @@ import lti_example_tool/database.{type Record, Record}
 import lti_example_tool/html.{render_error_page, render_page} as _
 import lti_example_tool/html/tables.{Column}
 import lti_example_tool/jwks
-import lti_example_tool/registrations
 import lti_example_tool/utils/logger
 import lustre/attribute.{class}
 import lustre/element/html.{div, span, text}
@@ -79,34 +73,6 @@ pub fn validate_launch(req: Request, app: AppContext) -> Response {
 
   case tool.validate_launch(app.lti_data_provider, params, session_state) {
     Ok(claims) -> {
-      let registration = {
-        let assert Ok(issuer) =
-          dict.get(claims, "iss")
-          |> result.then(fn(d) {
-            decode.run(d, decode.string) |> result.replace_error(Nil)
-          })
-
-        let assert Ok(client_id) =
-          dict.get(claims, "aud")
-          |> result.then(fn(d) {
-            decode.run(d, decode.string) |> result.replace_error(Nil)
-          })
-
-        let assert Ok(registration) =
-          registrations.get_by_issuer_client_id(app.db, issuer, client_id)
-
-        registration.data
-      }
-
-      let assert Ok(_) =
-        access_token.fetch_access_token(app.lti_data_provider, registration, [
-          ags.lineitem_scope_url,
-          ags.result_readonly_scope_url,
-          ags.scores_scope_url,
-          nrps.context_membership_readonly_claim_url,
-        ])
-        |> echo
-
       render_page("Launch Successful", [
         div([class("container")], [
           tables.table(

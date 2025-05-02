@@ -61,7 +61,7 @@ pub fn page_layout(page_title: String) {
 }
 
 pub fn render_error_page(error_message: String) {
-  let layout = page_layout("Something went wrong")
+  let layout = page_layout("An Error Occurred")
 
   wisp.internal_server_error()
   |> wisp.html_body(

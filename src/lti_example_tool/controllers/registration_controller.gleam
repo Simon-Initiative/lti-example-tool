@@ -2,19 +2,24 @@ import gleam/http.{Get, Post}
 import gleam/int
 import gleam/list
 import gleam/result
+import gleam/string
 import lti/deployment.{Deployment}
 import lti/registration.{type Registration, Registration}
+import lti/services/access_token.{AccessToken}
+import lti/services/ags
+import lti/services/nrps
 import lti_example_tool/app_context.{type AppContext}
 import lti_example_tool/database.{type Record, Record}
 import lti_example_tool/deployments
-import lti_example_tool/html.{render_page} as _
+import lti_example_tool/html.{render_error_page, render_page} as _
 import lti_example_tool/html/components.{DangerLink, Link, Primary, Secondary}
 import lti_example_tool/html/forms
 import lti_example_tool/html/tables.{Column}
 import lti_example_tool/registrations
 import lti_example_tool/utils/common.{try_with} as _
+import lti_example_tool/utils/logger
 import lustre/attribute.{action, class, href, method, type_}
-import lustre/element/html.{div, form, text}
+import lustre/element/html.{code, div, form, h2, p, pre, text}
 import wisp.{type Request, type Response}
 
 pub fn resources(req: Request, app: AppContext) -> Response {
@@ -29,6 +34,8 @@ pub fn resources(req: Request, app: AppContext) -> Response {
     Get, ["registrations", id] -> show(req, app, id)
 
     Post, ["registrations", id, "delete"] -> delete(req, app, id)
+
+    Post, ["registrations", id, "access_token"] -> access_token(req, app, id)
 
     _, _ -> wisp.method_not_allowed([Get, Post])
   }
@@ -182,6 +189,21 @@ pub fn show(req: Request, app: AppContext, id: String) -> Response {
       div([class("text-gray-500")], [text(registration.auth_endpoint)]),
       div([class("text-gray-500")], [text(registration.access_token_endpoint)]),
       div([class("text-gray-500")], [text(registration.keyset_url)]),
+      div([], [
+        form(
+          [
+            method("post"),
+            action("/registrations/" <> int.to_string(id) <> "/access_token"),
+          ],
+          [
+            div([class("flex flex-row")], [
+              components.button(Secondary, [class("my-8"), type_("submit")], [
+                text("Request Access Token"),
+              ]),
+            ]),
+          ],
+        ),
+      ]),
     ]),
     div([class("flex flex-row")], [
       components.link(Link, [href("/registrations")], [
@@ -217,4 +239,91 @@ pub fn delete(req: Request, app: AppContext, id: String) -> Response {
   })
 
   wisp.redirect("/registrations")
+}
+
+pub fn access_token(req: Request, app: AppContext, id: String) -> Response {
+  use <- wisp.require_method(req, Post)
+
+  use registration <- try_with(
+    int.parse(id)
+      |> result.then(fn(id) {
+        registrations.get(app.db, id) |> result.replace_error(Nil)
+      })
+      |> result.map(fn(record) { record.data }),
+    or_else: fn(e) {
+      logger.error_meta("Invalid registration ID", e)
+
+      render_error_page("Something went wrong")
+    },
+  )
+
+  let result =
+    access_token.fetch_access_token(app.lti_data_provider, registration, [
+      ags.lineitem_scope_url,
+      ags.result_readonly_scope_url,
+      ags.scores_scope_url,
+      nrps.context_membership_readonly_claim_url,
+    ])
+
+  case result {
+    Ok(AccessToken(
+      access_token: access_token,
+      token_type: token_type,
+      expires_in: expires_in,
+      ..,
+    )) -> {
+      render_page("Access Token", [
+        div([class("flex flex-col items-center justify-center w-full")], [
+          div([class("w-full max-w-4xl p-4")], [
+            h2([class("my-4 text-lg font-bold")], [text("Issuer")]),
+            p([class("")], [text(registration.issuer)]),
+            h2([class("my-4 text-lg font-bold")], [text("Token")]),
+            pre(
+              [class("p-6 bg-gray-100 rounded-lg break-words overflow-auto")],
+              [code([class("text-sm break-words")], [text(access_token)])],
+            ),
+            h2([class("my-4 text-lg font-bold mt-4")], [text("Scopes")]),
+            pre(
+              [class("p-6 bg-gray-100 rounded-lg break-words overflow-auto")],
+              [
+                code([class("text-sm break-words")], [
+                  text(string.join(
+                    [
+                      ags.lineitem_scope_url,
+                      ags.result_readonly_scope_url,
+                      ags.scores_scope_url,
+                      nrps.context_membership_readonly_claim_url,
+                    ],
+                    "\n",
+                  )),
+                ]),
+              ],
+            ),
+            h2([class("my-4 text-lg font-bold")], [text("Token Type")]),
+            pre(
+              [class("p-6 bg-gray-100 rounded-lg break-words overflow-auto")],
+              [code([class("text-sm break-words")], [text(token_type)])],
+            ),
+            h2([class("my-4 text-lg font-bold")], [text("Expires In")]),
+            pre(
+              [class("p-6 bg-gray-100 rounded-lg break-words overflow-auto")],
+              [
+                code([class("text-sm break-words")], [
+                  text(int.to_string(expires_in)),
+                ]),
+              ],
+            ),
+          ]),
+          div([class("flex flex-row space-x-4")], [
+            components.link(Link, [href("/registrations/" <> id)], [
+              text("Back to Registration"),
+            ]),
+          ]),
+        ]),
+      ])
+    }
+    Error(error_msg) -> {
+      render_error_page(error_msg)
+    }
+  }
 }
