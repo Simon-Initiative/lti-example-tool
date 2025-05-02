@@ -27,6 +27,8 @@ pub fn handle_request(req: Request, app: AppContext) -> Response {
     ["lti", "login"] -> lti_controller.oidc_login(req, app)
     ["lti", "launch"] -> lti_controller.validate_launch(req, app)
 
+    [".well-known", "jwks.json"] -> lti_controller.jwks(req, app)
+
     // This matches all other paths.
     _ -> wisp.not_found()
   }

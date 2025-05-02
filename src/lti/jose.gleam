@@ -27,7 +27,7 @@ pub fn sign(
 pub fn sign_with_jws(
   jwk: Dict(String, String),
   jws: Dict(String, String),
-  token: Dict(String, String),
+  token: Dict(String, Dynamic),
 ) -> #(JoseJws, Dict(String, String))
 
 @external(erlang, "jose_jws", "compact")
@@ -54,6 +54,9 @@ pub fn from_map(map: Dict(String, String)) -> JoseJwk
 
 @external(erlang, "jose_jwk", "from_pem")
 pub fn from_pem(pem: String) -> JoseJwk
+
+@external(erlang, "jose_jwk", "to_public")
+pub fn to_public(jwk: JoseJwk) -> JoseJwk
 
 /// This function will take a JoseJwk and convert it to a PEM string.
 /// Returns a tuple of the form #(params, pem) where params is a map of

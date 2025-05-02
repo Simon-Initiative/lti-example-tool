@@ -49,7 +49,11 @@ pub fn sign_with_jws_compact_test() {
     dict.from_list([#("alg", "RS256"), #("typ", "JWT"), #("kid", "test")])
 
   let jwt =
-    dict.from_list([#("iss", "test"), #("aud", "test"), #("sub", "test")])
+    dict.from_list([
+      #("iss", dynamic.from("test")),
+      #("aud", dynamic.from("test")),
+      #("sub", dynamic.from("test")),
+    ])
 
   let #(_jose_jws, jose_jwt) = jose.sign_with_jws(jwk, jws, jwt)
 

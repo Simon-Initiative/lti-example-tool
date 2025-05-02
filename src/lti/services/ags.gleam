@@ -10,6 +10,8 @@ pub const lti_ags_claim_url = "https://purl.imsglobal.org/spec/lti-ags/claim/end
 
 pub const lineitem_scope_url = "https://purl.imsglobal.org/spec/lti-ags/scope/lineitem"
 
+pub const result_readonly_scope_url = "https://purl.imsglobal.org/spec/lti-ags/scope/result.readonly"
+
 pub const scores_scope_url = "https://purl.imsglobal.org/spec/lti-ags/scope/score"
 // pub fn post_score(
 //   score: Score,

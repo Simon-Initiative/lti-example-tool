@@ -1,15 +1,19 @@
+import birl
+import birl/duration
 import gleam/dict
 import gleam/dynamic.{type Dynamic}
 import gleam/dynamic/decode
 import gleam/http
 import gleam/http/request
 import gleam/httpc
+import gleam/int
 import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import gleam/uri
+import ids/uuid
 import lti/data_provider.{type DataProvider}
 import lti/jose
 import lti/jwk.{type Jwk}
@@ -51,7 +55,7 @@ pub fn fetch_access_token(
       registration.access_token_endpoint,
       registration.client_id,
       // TODO: should this be separate auth_server url for audience?
-      Some(registration.auth_endpoint),
+      Some(registration.access_token_endpoint),
     )
 
   request_token(registration.access_token_endpoint, client_assertion, scopes)
@@ -151,15 +155,32 @@ pub fn create_client_assertion(
   // let #(_, jwk) = jose.generate_key(jose.Rsa(2048)) |> jose.to_map()
   let #(_, jwk) = active_jwk |> jwk.to_map()
 
+  let assert Ok(jti) = uuid.generate_v4()
+
   let jwt =
     dict.from_list([
-      #("iss", client_id),
-      #("aud", audience(auth_token_url, auth_audience)),
-      #("sub", client_id),
+      #("iss", dynamic.from(client_id)),
+      #("aud", dynamic.from(audience(auth_token_url, auth_audience))),
+      #("sub", dynamic.from(client_id)),
+      #("iat", birl.now() |> birl.to_unix() |> dynamic.from()),
+      #(
+        "exp",
+        birl.now()
+          |> birl.add(duration.seconds(3600))
+          |> birl.to_unix()
+          |> dynamic.from(),
+      ),
+      #("jti", dynamic.from(jti)),
     ])
 
-  // let #(jose_jwt, _jose_jws) = jose.sign(jose_jwk, jose.from_binary(jwt_string))
-  let #(_, jose_jwt) = jose.sign(jwk, jwt)
+  let jws =
+    dict.from_list([
+      #("alg", "RS256"),
+      #("typ", "JWT"),
+      #("kid", active_jwk.kid),
+    ])
+
+  let #(_, jose_jwt) = jose.sign_with_jws(jwk, jws, jwt)
   let #(_, compact_signed) = jose.compact(jose_jwt)
 
   compact_signed

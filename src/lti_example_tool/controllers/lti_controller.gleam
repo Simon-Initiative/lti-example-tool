@@ -1,18 +1,26 @@
 import gleam/dict.{type Dict}
 import gleam/dynamic.{type Dynamic}
 import gleam/dynamic/decode
+import gleam/function
 import gleam/http
 import gleam/http/cookie
+import gleam/json
 import gleam/list
 import gleam/option.{Some}
 import gleam/result
 import gleam/string
+import lti/jose
+import lti/jwk.{type Jwk}
 import lti/services/access_token
+import lti/services/ags
+import lti/services/nrps
 import lti/tool
 import lti_example_tool/app_context.{type AppContext}
 import lti_example_tool/cookies.{require_cookie, set_cookie}
+import lti_example_tool/database.{type Record, Record}
 import lti_example_tool/html.{render_error_page, render_page} as _
 import lti_example_tool/html/tables.{Column}
+import lti_example_tool/jwks
 import lti_example_tool/registrations
 import lti_example_tool/utils/logger
 import lustre/attribute.{class}
@@ -92,7 +100,10 @@ pub fn validate_launch(req: Request, app: AppContext) -> Response {
 
       let assert Ok(_) =
         access_token.fetch_access_token(app.lti_data_provider, registration, [
-          "lineitems", "score",
+          ags.lineitem_scope_url,
+          ags.result_readonly_scope_url,
+          ags.scores_scope_url,
+          nrps.context_membership_readonly_claim_url,
         ])
         |> echo
 
@@ -119,6 +130,39 @@ pub fn validate_launch(req: Request, app: AppContext) -> Response {
       logger.error_meta("Invalid launch", e)
 
       render_error_page("Invalid launch: " <> string.inspect(e))
+    }
+  }
+}
+
+pub fn jwks(_req: Request, app: AppContext) -> Response {
+  case jwks.all(app.db) {
+    Ok(jwks) -> {
+      let keys =
+        jwks
+        |> list.map(fn(jwk: Record(String, Jwk)) {
+          let Record(data: jwk, ..) = jwk
+          let #(_, jwk_map) =
+            jwk.pem |> jose.from_pem() |> jose.to_public() |> jose.to_map()
+
+          jwk_map
+          |> dict.insert("kid", jwk.kid)
+          |> dict.insert("alg", jwk.alg)
+          |> dict.insert("typ", jwk.typ)
+          |> dict.insert("use", "sig")
+        })
+
+      dict.from_list([#("keys", keys)])
+      |> json.dict(
+        function.identity,
+        json.array(_, json.dict(_, function.identity, json.string)),
+      )
+      |> json.to_string_tree()
+      |> wisp.json_response(200)
+    }
+    Error(e) -> {
+      logger.error_meta("Error fetching JWKS", e)
+
+      render_error_page("Error fetching JWKS: " <> string.inspect(e))
     }
   }
 }
