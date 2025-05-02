@@ -5,8 +5,11 @@ import gleam/io
 import gleam/list.{Continue, Stop}
 import gleam/result
 import gleam/set
+import gleam/string
+import lti/jwk
 import lti_example_tool/config
 import lti_example_tool/database
+import lti_example_tool/jwks
 import lti_example_tool/seeds
 import lti_example_tool/utils/logger
 import pog.{type Connection, type Returned}
@@ -49,6 +52,9 @@ pub fn main() {
       Nil
     }
     ["test.setup"] -> {
+      let db_name = config.db_name()
+      let test_db_name = db_name <> "_test"
+
       create_database(test_db_name)
 
       let db = database.connect(test_db_name)
@@ -134,8 +140,8 @@ fn reset(db_name: String) {
 type Migration {
   Migration(
     name: String,
-    up: fn(Connection) -> Result(Returned(Dynamic), pog.QueryError),
-    down: fn(Connection) -> Result(Returned(Dynamic), pog.QueryError),
+    up: fn(Connection) -> Result(Returned(Dynamic), String),
+    down: fn(Connection) -> Result(Returned(Dynamic), String),
   )
 }
 
@@ -159,7 +165,7 @@ fn migrate(db: Connection) {
 fn run_migrations(
   db: Connection,
   migrations: List(Migration),
-) -> Result(Nil, pog.QueryError) {
+) -> Result(Nil, database.DatabaseError) {
   // create migrations table if it doesn't exist
   let assert Ok(_) =
     pog.query(
@@ -189,14 +195,13 @@ fn run_migrations(
       False -> {
         logger.info("Running migration: " <> migration.name)
 
-        // create a new transaction for running migrations
-        let assert Ok(_) =
-          pog.query("BEGIN")
-          |> pog.returning(decode.dynamic)
-          |> pog.execute(db)
-
         // run migration
-        case migration.up(db) {
+        let result =
+          database.transaction(db, fn(db) {
+            migration.up(db) |> result.map_error(database.DatabaseError)
+          })
+
+        case result {
           Ok(_) -> {
             let assert Ok(_) =
               pog.query("INSERT INTO migrations (name) VALUES ($1)")
@@ -204,21 +209,9 @@ fn run_migrations(
               |> pog.returning(decode.dynamic)
               |> pog.execute(db)
 
-            // commit transaction
-            let assert Ok(_) =
-              pog.query("COMMIT")
-              |> pog.returning(decode.dynamic)
-              |> pog.execute(db)
-
             Continue(Ok(Nil))
           }
           Error(e) -> {
-            // rollback transaction
-            let assert Ok(_) =
-              pog.query("ROLLBACK")
-              |> pog.returning(decode.dynamic)
-              |> pog.execute(db)
-
             logger.error_meta("Migration failed: " <> migration.name, e)
 
             Stop(Error(e))
@@ -234,7 +227,7 @@ fn lti_example_tool_migrations() -> List(Migration) {
     Migration(
       name: "create_registrations_table",
       up: fn(conn) {
-        let sql =
+        let assert Ok(_) =
           "
           CREATE TABLE registrations (
             id SERIAL PRIMARY KEY,
@@ -249,20 +242,26 @@ fn lti_example_tool_migrations() -> List(Migration) {
             UNIQUE(issuer, client_id)
           );
         "
-        pog.query(sql) |> pog.returning(decode.dynamic) |> pog.execute(conn)
+          |> pog.query()
+          |> pog.returning(decode.dynamic)
+          |> pog.execute(conn)
+          |> result.map_error(string.inspect)
       },
       down: fn(conn) {
-        let sql =
+        let assert Ok(_) =
           "
           DROP TABLE registrations;
         "
-        pog.query(sql) |> pog.returning(decode.dynamic) |> pog.execute(conn)
+          |> pog.query()
+          |> pog.returning(decode.dynamic)
+          |> pog.execute(conn)
+          |> result.map_error(string.inspect)
       },
     ),
     Migration(
       name: "create_deployments_table",
       up: fn(conn) {
-        let sql =
+        let assert Ok(_) =
           "
           CREATE TABLE deployments (
             id SERIAL PRIMARY KEY,
@@ -273,20 +272,26 @@ fn lti_example_tool_migrations() -> List(Migration) {
             UNIQUE(deployment_id, registration_id)
           );
         "
-        pog.query(sql) |> pog.returning(decode.dynamic) |> pog.execute(conn)
+          |> pog.query()
+          |> pog.returning(decode.dynamic)
+          |> pog.execute(conn)
+          |> result.map_error(string.inspect)
       },
       down: fn(conn) {
-        let sql =
+        let assert Ok(_) =
           "
           DROP TABLE deployments;
         "
-        pog.query(sql) |> pog.returning(decode.dynamic) |> pog.execute(conn)
+          |> pog.query()
+          |> pog.returning(decode.dynamic)
+          |> pog.execute(conn)
+          |> result.map_error(string.inspect)
       },
     ),
     Migration(
       name: "create_nonces_table",
       up: fn(conn) {
-        let sql =
+        let assert Ok(_) =
           "
           CREATE TABLE nonces (
             nonce TEXT PRIMARY KEY,
@@ -294,14 +299,78 @@ fn lti_example_tool_migrations() -> List(Migration) {
             UNIQUE(nonce)
           );
         "
-        pog.query(sql) |> pog.returning(decode.dynamic) |> pog.execute(conn)
+          |> pog.query()
+          |> pog.returning(decode.dynamic)
+          |> pog.execute(conn)
+          |> result.map_error(string.inspect)
       },
       down: fn(conn) {
-        let sql =
+        let assert Ok(_) =
           "
           DROP TABLE nonces;
         "
-        pog.query(sql) |> pog.returning(decode.dynamic) |> pog.execute(conn)
+          |> pog.query()
+          |> pog.returning(decode.dynamic)
+          |> pog.execute(conn)
+          |> result.map_error(string.inspect)
+      },
+    ),
+    Migration(
+      name: "create_jwks_tables",
+      up: fn(conn) {
+        let assert Ok(_) =
+          database.transaction(conn, fn(conn) {
+            "
+            CREATE TABLE jwks (
+              kid TEXT PRIMARY KEY,
+              kty TEXT,
+              alg TEXT,
+              use TEXT,
+              n TEXT,
+              e TEXT,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            "
+            |> pog.query()
+            |> pog.returning(decode.dynamic)
+            |> pog.execute(conn)
+            |> result.map_error(database.QueryError)
+          })
+          |> result.map_error(string.inspect)
+
+        let assert Ok(_) =
+          database.transaction(conn, fn(conn) {
+            "
+            CREATE TABLE active_jwk (
+              kid TEXT REFERENCES jwks(kid)
+            );
+            "
+            |> pog.query()
+            |> pog.returning(decode.dynamic)
+            |> pog.execute(conn)
+            |> result.map_error(database.QueryError)
+          })
+          |> result.map_error(string.inspect)
+      },
+      down: fn(conn) {
+        let assert Ok(_) =
+          "
+          DROP TABLE active_jwk;
+        "
+          |> pog.query()
+          |> pog.returning(decode.dynamic)
+          |> pog.execute(conn)
+          |> result.map_error(string.inspect)
+
+        let assert Ok(_) =
+          "
+          DROP TABLE jwks;
+        "
+          |> pog.query()
+          |> pog.returning(decode.dynamic)
+          |> pog.execute(conn)
+          |> result.map_error(string.inspect)
       },
     ),
   ]
@@ -309,6 +378,12 @@ fn lti_example_tool_migrations() -> List(Migration) {
 
 fn seed(db: Connection) {
   logger.info("Seeding database...")
+
+  // create active jwk
+  use active_jwk <- result.try(jwk.generate())
+
+  let assert Ok(_kid) = jwks.insert(db, active_jwk)
+  let assert Ok(_) = jwks.set_active_jwk(db, active_jwk.kid)
 
   case seeds.load_from_file(db, "seeds.yml") {
     Ok(_) -> {

@@ -2,6 +2,7 @@ import gleam/result
 import lti/data_provider.{type DataProvider, DataProvider}
 import lti_example_tool/database.{type Database}
 import lti_example_tool/deployments
+import lti_example_tool/jwks
 import lti_example_tool/nonces
 import lti_example_tool/registrations
 
@@ -24,6 +25,12 @@ pub fn data_provider(db: Database) -> Result(DataProvider, String) {
         )
         |> result.replace_error("Failed to get deployment")
         |> result.map(fn(record) { record.data })
+      },
+      get_active_jwk: fn() {
+        case jwks.get_active_jwk(db) {
+          Ok(jwk) -> Ok(jwk.data)
+          Error(_) -> Error("Failed to get active JWK")
+        }
       },
     ),
   )

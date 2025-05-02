@@ -19,17 +19,19 @@ import lti/registration.{type Registration}
 import lti_example_tool/utils/common.{try_with}
 import lti_example_tool/utils/logger
 
-pub type State =
-  String
+const deployment_id_claim = "https://purl.imsglobal.org/spec/lti/claim/deployment_id"
 
-pub type RedirectUrl =
-  String
+const message_type_claim = "https://purl.imsglobal.org/spec/lti/claim/message_type"
 
-/// Initiates the OIDC login flow
+const lti_message_hint_claim = "lti_message_hint"
+
+/// Initiates the OIDC login flow. Returns the state and redirect URL.
+/// The state is a random UUID that is used to verify the response from the OIDC provider.
+/// The redirect URL is the URL to which the user should be redirected to complete the login flow.
 pub fn oidc_login(
   provider: DataProvider,
   params: Dict(String, String),
-) -> Result(#(State, RedirectUrl), String) {
+) -> Result(#(String, String), String) {
   use _params <- result.try(validate_issuer_exists(params))
   use target_link_uri <- try_with(dict.get(params, "target_link_uri"), fn(_) {
     Error("Missing target_link_uri")
@@ -54,7 +56,7 @@ pub fn oidc_login(
   ]
 
   // pass back LTI message hint if given
-  let query_params = case dict.get(params, "lti_message_hint") {
+  let query_params = case dict.get(params, lti_message_hint_claim) {
     Ok(lti_message_hint) -> [
       #("lti_message_hint", lti_message_hint),
       ..query_params
@@ -195,7 +197,7 @@ fn verify_token(id_token, keyset_url) {
   )
   use jwk <- result.try(fetch_jwk(keyset_url, kid))
 
-  case jose.verify(jwk, id_token) {
+  case jose.verify(jose.from_map(jwk), id_token) {
     #(True, JoseJwt(claims: claims), _) -> Ok(claims)
 
     _ -> {
@@ -265,7 +267,7 @@ fn validate_deployment(
 ) {
   use deployment_id <- result.try(get_claim(
     claims,
-    "https://purl.imsglobal.org/spec/lti/claim/deployment_id",
+    deployment_id_claim,
     decode.string,
   ))
 
@@ -315,19 +317,10 @@ fn validate_nonce(claims: Claims, provider: DataProvider) {
 fn validate_lti_resource_link_request_message(
   claims: Claims,
 ) -> Result(Dict(String, Dynamic), String) {
-  case
-    get_claim(
-      claims,
-      "https://purl.imsglobal.org/spec/lti/claim/message_type",
-      decode.string,
-    )
-  {
+  case get_claim(claims, message_type_claim, decode.string) {
     Ok("LtiResourceLinkRequest") -> Ok(claims)
     _ -> {
-      logger.error_meta("Invalid message type", #(
-        claims,
-        "https://purl.imsglobal.org/spec/lti/claim/message_type",
-      ))
+      logger.error_meta("Invalid message type", #(claims, message_type_claim))
 
       Error("Invalid message type")
     }
@@ -341,7 +334,7 @@ const message_validators = [
 fn validate_message(claims: Claims) {
   use message_type <- result.try(get_claim(
     claims,
-    "https://purl.imsglobal.org/spec/lti/claim/message_type",
+    message_type_claim,
     decode.string,
   ))
 

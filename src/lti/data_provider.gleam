@@ -1,4 +1,5 @@
 import lti/deployment.{type Deployment}
+import lti/jwk.{type Jwk}
 import lti/nonce.{type Nonce}
 import lti/registration.{type Registration}
 
@@ -8,6 +9,7 @@ pub type DataProvider {
     validate_nonce: fn(String) -> Result(Nil, String),
     get_registration: fn(String, String) -> Result(Registration, String),
     get_deployment: fn(String, String, String) -> Result(Deployment, String),
+    get_active_jwk: fn() -> Result(Jwk, String),
   )
 }
 
@@ -37,4 +39,8 @@ pub fn get_deployment(
   deployment_id: String,
 ) -> Result(Deployment, String) {
   provider.get_deployment(issuer, client_id, deployment_id)
+}
+
+pub fn get_active_jwk(provider: DataProvider) -> Result(Jwk, String) {
+  provider.get_active_jwk()
 }

@@ -24,7 +24,9 @@ pub type MemoryProvider =
 
 type State {
   State(
+    dispatch: fn(Message) -> Nil,
     jwks: List(Jwk),
+    active_jwk_kid: String,
     nonces: List(Nonce),
     registrations: Table(Registration),
     deployments: Table(Deployment),
@@ -36,6 +38,7 @@ pub type Message {
   GetActiveJwk(reply_with: Subject(Result(Jwk, Nil)))
   GetAllJwks(reply_with: Subject(List(Jwk)))
   CreateJwk(jwk: Jwk)
+  SetActiveJwk(kid: String)
   CreateNonce(reply_with: Subject(Result(Nonce, Nil)))
   ValidateNonce(value: String, reply_with: Subject(Result(Nil, Nil)))
   CleanupExpiredNonces
@@ -67,6 +70,10 @@ pub type Message {
 }
 
 fn handle_message(message: Message, state: State) -> actor.Next(Message, State) {
+  // The dispatch function is a safe way to send messages to the actor. Messages will be
+  // processed in the order they are received after the current operation is completed.
+  let State(dispatch, ..) = state
+
   case message {
     Shutdown -> actor.Stop(process.Normal)
 
@@ -86,7 +93,17 @@ fn handle_message(message: Message, state: State) -> actor.Next(Message, State) 
     }
 
     CreateJwk(jwk) -> {
+      // if this is the first JWK, set it as the active JWK
+      case state.jwks == [] {
+        True -> dispatch(SetActiveJwk(jwk.kid))
+        False -> Nil
+      }
+
       actor.continue(State(..state, jwks: [jwk, ..state.jwks]))
+    }
+
+    SetActiveJwk(kid) -> {
+      actor.continue(State(..state, active_jwk_kid: kid))
     }
 
     CreateNonce(reply_with) -> {
@@ -213,7 +230,9 @@ pub fn start() -> Result(MemoryProvider, StartError) {
 
     let state =
       State(
+        dispatch: process.send(self, _),
         jwks: [],
+        active_jwk_kid: "",
         nonces: [],
         registrations: tables.new(),
         deployments: tables.new(),
@@ -253,6 +272,10 @@ pub fn data_provider(memory_provider) -> Result(DataProvider, String) {
         get_deployment(memory_provider, issuer, client_id, deployment_id)
         |> result.map(pair.second)
         |> result.replace_error("Failed to get deployment")
+      },
+      get_active_jwk: fn() {
+        get_active_jwk(memory_provider)
+        |> result.replace_error("Failed to get active JWK")
       },
     ),
   )

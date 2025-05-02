@@ -49,23 +49,23 @@ pub fn index(app: AppContext) -> Response {
     tables.table(
       [],
       [
-        Column("ID", fn(record: Record(Registration)) {
+        Column("ID", fn(record: Record(Int, Registration)) {
           let Record(id, ..) = record
           text(int.to_string(id))
         }),
-        Column("Name", fn(record: Record(Registration)) {
+        Column("Name", fn(record: Record(Int, Registration)) {
           let Record(data: registration, ..) = record
           text(registration.name)
         }),
-        Column("Issuer", fn(record: Record(Registration)) {
+        Column("Issuer", fn(record: Record(Int, Registration)) {
           let Record(data: registration, ..) = record
           text(registration.issuer)
         }),
-        Column("Client ID", fn(record: Record(Registration)) {
+        Column("Client ID", fn(record: Record(Int, Registration)) {
           let Record(data: registration, ..) = record
           text(registration.client_id)
         }),
-        Column("Actions", fn(record: Record(Registration)) {
+        Column("Actions", fn(record: Record(Int, Registration)) {
           let Record(id, ..) = record
           div([], [
             components.link(

@@ -42,11 +42,12 @@ pub fn disconnect(db: Connection) {
   pog.disconnect(db)
 }
 
-pub type Record(a) {
-  Record(id: Int, created_at: pog.Timestamp, updated_at: pog.Timestamp, data: a)
+pub type Record(pk, a) {
+  Record(id: pk, created_at: pog.Timestamp, updated_at: pog.Timestamp, data: a)
 }
 
 pub type DatabaseError {
+  DatabaseError(e: String)
   QueryError(e: pog.QueryError)
   ExpectedSingleRow(num_rows: Int)
   TransactionError(e: pog.TransactionError)
@@ -76,7 +77,7 @@ pub fn one(query_result: Result(pog.Returned(a), pog.QueryError)) {
 }
 
 pub fn transaction(db: Database, tx: fn(Database) -> Result(a, DatabaseError)) {
-  pog.transaction(db, fn(db) { tx(db) |> result.map_error(humanize_error) })
+  pog.transaction(db, fn(db) { tx(db) |> result.map_error(string.inspect) })
   |> result.map_error(TransactionError)
 }
 
@@ -98,6 +99,7 @@ pub fn rollback_to_savepoint(db: Database, name: String) {
 
 pub fn humanize_error(error: DatabaseError) {
   case error {
+    DatabaseError(e) -> "Unknown error: " <> e
     QueryError(e) -> "Query error: " <> string.inspect(e)
     ExpectedSingleRow(num_rows) ->
       "Expected a single row but got " <> int.to_string(num_rows) <> " rows"
