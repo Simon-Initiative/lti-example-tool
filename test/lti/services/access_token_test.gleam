@@ -1,4 +1,5 @@
 import gleam/http
+import gleam/http/request.{type Request}
 import gleam/http/response
 import gleeunit/should
 import lti/jwk
@@ -39,16 +40,16 @@ pub fn active_jwk_test() {
     nrps.context_membership_readonly_claim_url,
   ]
 
-  let providers =
-    providers.Providers(
-      data: lti_data_provider,
-      http: http_mock_provider.http_provider(fn(req) {
-        req.method
-        |> should.equal(http.Post)
+  let expect_http_post = fn(req: Request(String)) {
+    req.path
+    |> should.equal("/auth/token")
 
-        response.new(200)
-        |> response.set_body(
-          "
+    req.method
+    |> should.equal(http.Post)
+
+    response.new(200)
+    |> response.set_body(
+      "
         {
           \"access_token\": \"SOME_ACCESS_TOKEN\",
           \"token_type\": \"Bearer\",
@@ -56,9 +57,14 @@ pub fn active_jwk_test() {
           \"scope\": \"some scopes\"
         }
         ",
-        )
-        |> Ok
-      }),
+    )
+    |> Ok
+  }
+
+  let providers =
+    providers.Providers(
+      data: lti_data_provider,
+      http: http_mock_provider.http_provider(expect_http_post),
     )
 
   access_token.fetch_access_token(providers, registration, scopes)
