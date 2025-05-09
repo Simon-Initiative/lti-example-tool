@@ -1,3 +1,5 @@
+import lti/providers.{Providers}
+import lti/providers/httpc_provider
 import lti_example_tool/app_context.{type AppContext, AppContext}
 import lti_example_tool/config
 import lti_example_tool/database
@@ -20,13 +22,15 @@ pub fn setup() -> AppContext {
 
   env.exec(env, Dev, fn() { devtools.start() })
 
+  let http_provider = httpc_provider.http_provider()
+
   AppContext(
     env: env,
     port: port,
     secret_key_base: secret_key_base,
     db: db,
     static_directory: static_directory,
-    lti_data_provider: lti_data_provider,
+    providers: Providers(lti_data_provider, http_provider),
   )
 }
 

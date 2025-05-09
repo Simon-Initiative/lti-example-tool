@@ -1,22 +1,14 @@
-import gleam/option.{Some}
+import gleam/http
+import gleam/http/response
 import gleeunit/should
 import lti/jwk
+import lti/providers
+import lti/providers/http_mock_provider
 import lti/providers/memory_provider
 import lti/registration.{Registration}
-import lti/services/access_token
+import lti/services/access_token.{AccessToken}
 import lti/services/ags
 import lti/services/nrps
-
-pub fn create_client_assertion_test() {
-  let assert Ok(jwk) = jwk.generate()
-
-  echo access_token.create_client_assertion(
-    jwk,
-    "https://example.com",
-    "some_client_id",
-    Some("https://example.com/auth"),
-  )
-}
 
 pub fn active_jwk_test() {
   let assert Ok(memory_provider) = memory_provider.start()
@@ -47,5 +39,30 @@ pub fn active_jwk_test() {
     nrps.context_membership_readonly_claim_url,
   ]
 
-  echo access_token.fetch_access_token(lti_data_provider, registration, scopes)
+  let providers =
+    providers.Providers(
+      data: lti_data_provider,
+      http: http_mock_provider.http_provider(fn(req) {
+        req.method
+        |> should.equal(http.Post)
+
+        response.new(200)
+        |> response.set_body(
+          "
+        {
+          \"access_token\": \"SOME_ACCESS_TOKEN\",
+          \"token_type\": \"Bearer\",
+          \"expires_in\": 3600,
+          \"scope\": \"some scopes\"
+        }
+        ",
+        )
+        |> Ok
+      }),
+    )
+
+  access_token.fetch_access_token(providers, registration, scopes)
+  |> should.equal(
+    Ok(AccessToken("SOME_ACCESS_TOKEN", "Bearer", 3600, "some scopes")),
+  )
 }

@@ -1,9 +1,13 @@
+import gleam/http/request.{type Request}
+import gleam/http/response.{type Response}
 import gleam/list
 import gleam/result
 import gleam/string
 import gleeunit
 import gleeunit/should
 import lti/deployment.{Deployment}
+import lti/providers
+import lti/providers/http_mock_provider
 import lti/providers/memory_provider
 import lti/registration.{Registration}
 import lti_example_tool/app_context.{AppContext}
@@ -21,6 +25,12 @@ fn setup() {
   let assert Ok(lti_data_provider) =
     memory_provider.data_provider(memory_provider)
 
+  let http_provider =
+    http_mock_provider.http_provider(fn(_req) {
+      response.new(200)
+      |> Ok
+    })
+
   #(
     memory_provider,
     AppContext(
@@ -29,7 +39,7 @@ fn setup() {
       secret_key_base: "secret_key_base",
       db: database.connect("lti_example_tool_test"),
       static_directory: "static_directory",
-      lti_data_provider: lti_data_provider,
+      providers: providers.Providers(lti_data_provider, http_provider),
     ),
   )
 }

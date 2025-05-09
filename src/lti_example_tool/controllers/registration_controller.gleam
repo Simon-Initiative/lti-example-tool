@@ -258,7 +258,7 @@ pub fn access_token(req: Request, app: AppContext, id: String) -> Response {
   )
 
   let result =
-    access_token.fetch_access_token(app.lti_data_provider, registration, [
+    access_token.fetch_access_token(app.providers, registration, [
       ags.lineitem_scope_url,
       ags.result_readonly_scope_url,
       ags.scores_scope_url,

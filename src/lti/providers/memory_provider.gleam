@@ -8,10 +8,10 @@ import gleam/otp/actor.{type StartError, Spec}
 import gleam/pair
 import gleam/result
 import ids/uuid
-import lti/data_provider.{type DataProvider, DataProvider}
 import lti/deployment.{type Deployment}
 import lti/jwk.{type Jwk}
 import lti/nonce.{type Nonce, Nonce}
+import lti/providers/data_provider.{type DataProvider, DataProvider}
 import lti/providers/memory_provider/tables.{type Table}
 import lti/registration.{type Registration}
 import lti_example_tool/utils/common.{try_with}

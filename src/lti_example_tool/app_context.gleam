@@ -1,4 +1,4 @@
-import lti/data_provider.{type DataProvider}
+import lti/providers.{type Providers}
 import lti_example_tool/database.{type Database}
 import lti_example_tool/env.{type Env}
 
@@ -9,6 +9,6 @@ pub type AppContext {
     secret_key_base: String,
     db: Database,
     static_directory: String,
-    lti_data_provider: DataProvider,
+    providers: Providers,
   )
 }

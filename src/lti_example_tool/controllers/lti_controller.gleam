@@ -24,7 +24,7 @@ import wisp.{type Request, type Response, redirect}
 pub fn oidc_login(req: Request, app: AppContext) -> Response {
   use params <- all_params(req)
 
-  case tool.oidc_login(app.lti_data_provider, params) {
+  case tool.oidc_login(app.providers.data, params) {
     Ok(#(state, redirect_url)) -> {
       use <- set_cookie(
         "state",
@@ -71,7 +71,7 @@ pub fn validate_launch(req: Request, app: AppContext) -> Response {
     render_error_page("Required 'state' cookie not found")
   })
 
-  case tool.validate_launch(app.lti_data_provider, params, session_state) {
+  case tool.validate_launch(app.providers.data, params, session_state) {
     Ok(claims) -> {
       render_page("Launch Successful", [
         div([class("container")], [

@@ -5,8 +5,6 @@ import gleam/dynamic.{type Dynamic}
 import gleam/dynamic/decode
 import gleam/http
 import gleam/http/request
-import gleam/httpc
-import gleam/int
 import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
@@ -14,9 +12,10 @@ import gleam/result
 import gleam/string
 import gleam/uri
 import ids/uuid
-import lti/data_provider.{type DataProvider}
 import lti/jose
 import lti/jwk.{type Jwk}
+import lti/providers.{type Providers}
+import lti/providers/http_provider.{type HttpProvider}
 import lti/registration.{type Registration}
 import lti_example_tool/utils/logger
 
@@ -43,11 +42,11 @@ pub type AccessToken {
 /// // Ok(AccessToken("actual_access_token", "Bearer", 3600, "https://purl.imsglobal.org/spec/lti-ags/scope/lineitem"))
 /// ```
 pub fn fetch_access_token(
-  provider: DataProvider,
+  providers: Providers,
   registration: Registration,
   scopes: List(String),
 ) -> Result(AccessToken, String) {
-  use active_jwk <- result.try(data_provider.get_active_jwk(provider))
+  use active_jwk <- result.try(providers.data.get_active_jwk())
 
   let client_assertion =
     create_client_assertion(
@@ -58,10 +57,16 @@ pub fn fetch_access_token(
       Some(registration.access_token_endpoint),
     )
 
-  request_token(registration.access_token_endpoint, client_assertion, scopes)
+  request_token(
+    providers.http,
+    registration.access_token_endpoint,
+    client_assertion,
+    scopes,
+  )
 }
 
 fn request_token(
+  http_provider: HttpProvider,
   url: String,
   client_assertion: String,
   scopes: List(String),
@@ -88,7 +93,7 @@ fn request_token(
     |> request.set_method(http.Post)
     |> request.set_body(body)
 
-  case httpc.send(req) {
+  case http_provider.send(req) {
     Ok(resp) ->
       case resp.status {
         200 | 201 -> decode_access_token(resp.body)
