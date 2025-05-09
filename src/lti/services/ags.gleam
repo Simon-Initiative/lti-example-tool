@@ -1,10 +1,18 @@
+import gleam/dict.{type Dict}
+import gleam/dynamic.{type Dynamic}
+import gleam/dynamic/decode
 import gleam/http
-import gleam/httpc
+import gleam/http/request.{type Request}
 import gleam/json
+import gleam/list
+import gleam/result
 import gleam/string
-import lti/services/access_token.{type AccessToken}
-import lti/services/ags/line_item.{type LineItem}
+import gleam/uri
+import lti/providers/http_provider.{type HttpProvider}
+import lti/services/access_token.{type AccessToken, AccessToken}
+import lti/services/ags/line_item.{type LineItem, LineItem}
 import lti/services/ags/score.{type Score}
+import lti/utils.{json_decoder}
 
 pub const lti_ags_claim_url = "https://purl.imsglobal.org/spec/lti-ags/claim/endpoint"
 
@@ -13,126 +21,213 @@ pub const lineitem_scope_url = "https://purl.imsglobal.org/spec/lti-ags/scope/li
 pub const result_readonly_scope_url = "https://purl.imsglobal.org/spec/lti-ags/scope/result.readonly"
 
 pub const scores_scope_url = "https://purl.imsglobal.org/spec/lti-ags/scope/score"
-// pub fn post_score(
-//   score: Score,
-//   line_item: LineItem,
-//   access_token: AccessToken,
-// ) -> Result(String, String) {
-//   let url = build_url_with_path(line_item.id, "scores")
-//   let body = json.encode(score)
-//   let headers = score_headers(access_token)
 
-//   httpc.post(url, body, headers)
-//   |> case {
-//     Ok(response) if response.status in [200, 201] -> Ok(response.body)
-//     _ -> Error("Error posting score")
-//   }
-// }
+pub fn post_score(
+  http_provider: HttpProvider,
+  score: Score,
+  line_item: LineItem,
+  access_token: AccessToken,
+) -> Result(String, String) {
+  let url = build_url_with_path(line_item.id, "scores")
+  let body =
+    score.to_json(score)
+    |> json.to_string()
 
-// pub fn fetch_or_create_line_item(
-//   line_items_service_url: String,
-//   resource_id: String,
-//   maximum_score_provider: fn() -> Float,
-//   label: String,
-//   access_token: AccessToken,
-// ) -> Result(LineItem, String) {
-//   let prefixed_resource_id = resource_id
-//   let request_url = build_url_with_params(line_items_service_url, "resource_id=\(prefixed_resource_id)&limit=1")
+  use req <- result.try(
+    request.to(url)
+    |> result.replace_error("Error creating request for URL " <> url),
+  )
 
-//   http.get(request_url, headers(access_token))
-//   |> case {
-//     Ok(response) if response.status in [200, 201] ->
-//       json.decode(response.body)
-//       |> case {
-//         Ok([]) -> create_line_item(line_items_service_url, resource_id, maximum_score_provider(), label, access_token)
-//         Ok([raw_line_item, ..]) -> Ok(to_line_item(raw_line_item))
-//         _ -> Error("Error retrieving existing line items")
-//       }
-//     _ -> Error("Error retrieving existing line items")
-//   }
-// }
+  let req =
+    req
+    |> set_score_headers()
+    |> set_authorization_header(access_token)
+    |> request.set_method(http.Post)
+    |> request.set_body(body)
 
-// pub fn create_line_item(
-//   line_items_service_url: String,
-//   resource_id: String,
-//   score_maximum: Float,
-//   label: String,
-//   access_token: AccessToken,
-// ) -> Result(LineItem, String) {
-//   let line_item = LineItem("", score_maximum, resource_id, label)
-//   let body = json.encode(line_item)
+  case http_provider.send(req) {
+    Ok(res) ->
+      case res.status {
+        200 | 201 -> Ok(res.body)
+        _ -> Error("Error posting score")
+      }
 
-//   http.post(line_items_service_url, body, headers(access_token))
-//   |> case {
-//     Ok(response) if response.status in [200, 201] ->
-//       json.decode(response.body)
-//       |> case {
-//         Ok(raw_line_item) -> Ok(to_line_item(raw_line_item))
-//         _ -> Error("Error creating new line item")
-//       }
-//     _ -> Error("Error creating new line item")
-//   }
-// }
+    _ -> Error("Error posting score")
+  }
+}
 
-// pub fn grade_passback_enabled?(lti_launch_params: Map(String, String)) -> Bool {
-//   lti_launch_params
-//   |> map.get(lti_ags_claim_url)
-//   |> case {
-//     None -> False
-//     Some(config) ->
-//       map.has_key(config, "lineitems") &&
-//       has_scope?(config, lineitem_scope_url) &&
-//       has_scope?(config, scores_scope_url)
-//   }
-// }
+pub fn fetch_or_create_line_item(
+  http_provider: HttpProvider,
+  line_items_service_url: String,
+  resource_id: String,
+  maximum_score_provider: fn() -> Float,
+  label: String,
+  access_token: AccessToken,
+) -> Result(LineItem, String) {
+  let url =
+    build_url_with_params(line_items_service_url, [
+      #("resource_id", resource_id),
+      #("limit", "1"),
+    ])
 
-// fn to_line_item(raw_line_item: Map(String, String)) -> LineItem {
-//   LineItem(
-//     id: map.get(raw_line_item, "id") |> unwrap_or(""),
-//     score_maximum: map.get(raw_line_item, "scoreMaximum") |> unwrap_or(0.0),
-//     resource_id: map.get(raw_line_item, "resourceId") |> unwrap_or(""),
-//     label: map.get(raw_line_item, "label") |> unwrap_or("")
-//   )
-// }
+  use req <- result.try(
+    request.to(url)
+    |> result.replace_error("Error creating request for URL " <> url),
+  )
 
-// fn headers(access_token: AccessToken) -> List(http.Header) {
-//   [
-//     http.header("Accept", "application/vnd.ims.lis.v2.lineitemcontainer+json"),
-//     http.header("Content-Type", "application/vnd.ims.lis.v2.lineitem+json"),
-//     access_token_header(access_token)
-//   ]
-// }
+  let req =
+    req
+    |> set_line_items_headers()
+    |> set_authorization_header(access_token)
+    |> request.set_method(http.Get)
 
-// fn score_headers(access_token: AccessToken) -> List(http.Header) {
-//   [
-//     http.header("Content-Type", "application/vnd.ims.lis.v1.score+json"),
-//     access_token_header(access_token)
-//   ]
-// }
+  case http_provider.send(req) {
+    Ok(res) ->
+      case res.status {
+        200 | 201 -> {
+          case
+            json.decode(
+              res.body,
+              json_decoder(decode.list(line_item.decoder())),
+            )
+          {
+            Ok([]) ->
+              create_line_item(
+                http_provider,
+                line_items_service_url,
+                resource_id,
+                maximum_score_provider(),
+                label,
+                access_token,
+              )
 
-// fn access_token_header(AccessToken(access_token)) -> http.Header {
-//   http.header("Authorization", "Bearer \(access_token)")
-// }
+            Ok([raw_line_item, ..]) -> Ok(raw_line_item)
 
-// fn build_url_with_path(base_url: String, path_to_add: String) -> String {
-//   string.split(base_url, "?")
-//   |> case {
-//     [base, query] -> "\(base)/\(path_to_add)?\(query)"
-//     _ -> "\(base_url)/\(path_to_add)"
-//   }
-// }
+            _ -> Error("Error decoding line items")
+          }
+        }
 
-// fn build_url_with_params(base_url: String, params_to_add: String) -> String {
-//   string.split(base_url, "?")
-//   |> case {
-//     [base, query] -> "\(base)?\(query)&\(params_to_add)"
-//     _ -> "\(base_url)?\(params_to_add)"
-//   }
-// }
+        _ -> Error("Error retrieving existing line items")
+      }
 
-// fn has_scope?(lti_ags_claim: Map(String, String), scope_url: String) -> Bool {
-//   lti_ags_claim
-//   |> map.get("scope")
-//   |> option.map(fn scopes -> list.member(scopes, scope_url) end)
-//   |> unwrap_or(False)
-// }
+    _ -> Error("Error retrieving existing line items")
+  }
+}
+
+pub fn create_line_item(
+  http_provider: HttpProvider,
+  line_items_service_url: String,
+  resource_id: String,
+  score_maximum: Float,
+  label: String,
+  access_token: AccessToken,
+) -> Result(LineItem, String) {
+  let line_item = LineItem("", score_maximum, resource_id, label)
+
+  let body =
+    line_item.to_json(line_item)
+    |> json.to_string()
+
+  use req <- result.try(
+    request.to(line_items_service_url)
+    |> result.replace_error(
+      "Error creating request for URL " <> line_items_service_url,
+    ),
+  )
+
+  let req =
+    req
+    |> set_authorization_header(access_token)
+    |> request.set_method(http.Post)
+    |> request.set_body(body)
+
+  case http_provider.send(req) {
+    Ok(res) ->
+      case res.status {
+        200 | 201 -> {
+          case json.decode(res.body, json_decoder(line_item.decoder())) {
+            Ok(raw_line_item) -> Ok(raw_line_item)
+            _ -> Error("Error creating new line item")
+          }
+        }
+        _ -> Error("Error creating new line item")
+      }
+
+    _ -> Error("Error creating new line item")
+  }
+}
+
+/// Given a set of LTI claims, returns True if the grade passback
+/// feature is available for the given LTI launch.
+pub fn grade_passback_available(
+  lti_launch_claims: Dict(String, Dynamic),
+) -> Bool {
+  {
+    use lti_ags_claim <- result.try(
+      dict.get(lti_launch_claims, lti_ags_claim_url)
+      |> result.replace_error(False)
+      |> result.then(fn(c) {
+        decode.run(c, decode.dict(decode.string, decode.string))
+        |> result.replace_error(False)
+      }),
+    )
+
+    use scopes <- result.try(
+      dict.get(lti_ags_claim, "scope") |> result.replace_error(False),
+    )
+
+    let scopes = string.split(scopes, " ")
+
+    Ok(list.contains(scopes, result_readonly_scope_url))
+  }
+  |> result.unwrap_both()
+}
+
+fn set_line_items_headers(req: Request(String)) -> Request(String) {
+  req
+  |> request.set_header(
+    "Content-Type",
+    "application/vnd.ims.lis.v2.lineitem+json",
+  )
+  |> request.set_header(
+    "Accept",
+    "application/vnd.ims.lis.v2.lineitemcontainer+json",
+  )
+}
+
+fn set_score_headers(req: Request(String)) -> Request(String) {
+  req
+  |> request.set_header("Content-Type", "application/vnd.ims.lis.v1.score+json")
+  |> request.set_header(
+    "Accept",
+    "application/vnd.ims.lis.v2.lineitemcontainer+json",
+  )
+}
+
+fn set_authorization_header(
+  req: Request(String),
+  access_token: AccessToken,
+) -> Request(String) {
+  let AccessToken(access_token: access_token, ..) = access_token
+
+  req
+  |> request.set_header("Authorization", "Bearer " <> access_token)
+}
+
+fn build_url_with_path(base: String, path: String) -> String {
+  case string.split(base, "?") {
+    [base, query] -> base <> "/" <> path <> "?" <> query
+    _ -> base <> "/" <> path
+  }
+}
+
+fn build_url_with_params(
+  base: String,
+  params: List(#(String, String)),
+) -> String {
+  case uri.parse_query(base) {
+    Ok(base_params) ->
+      base <> "?" <> uri.query_to_string(list.append(base_params, params))
+    _ -> base <> "?" <> uri.query_to_string(params)
+  }
+}

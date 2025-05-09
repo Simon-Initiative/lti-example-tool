@@ -1,12 +1,11 @@
 import birl
 import birl/duration
 import gleam/dict
-import gleam/dynamic.{type Dynamic}
+import gleam/dynamic
 import gleam/dynamic/decode
 import gleam/http
 import gleam/http/request
 import gleam/json
-import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
@@ -17,6 +16,7 @@ import lti/jwk.{type Jwk}
 import lti/providers.{type Providers}
 import lti/providers/http_provider.{type HttpProvider}
 import lti/registration.{type Registration}
+import lti/utils.{json_decoder}
 import lti_example_tool/utils/logger
 
 pub type AccessToken {
@@ -82,9 +82,10 @@ fn request_token(
       #("scope", string.join(scopes, " ")),
     ])
 
-  let assert Ok(req) =
+  use req <- result.try(
     request.to(url)
-    |> result.replace_error("Error creating request for URL " <> url)
+    |> result.replace_error("Error creating request for URL " <> url),
+  )
 
   let req =
     req
@@ -129,25 +130,6 @@ fn decode_access_token(body: String) -> Result(AccessToken, String) {
   json.decode(body, json_decoder(access_token_decoder))
   |> result.map_error(fn(e) {
     "Error decoding access token" <> string.inspect(e)
-  })
-}
-
-fn json_decoder(
-  deocder: decode.Decoder(a),
-) -> fn(Dynamic) -> Result(a, List(dynamic.DecodeError)) {
-  fn(json: Dynamic) -> Result(a, List(dynamic.DecodeError)) {
-    decode.run(json, deocder)
-    |> result.map_error(map_decode_errors_to_dynamic_errors)
-  }
-}
-
-fn map_decode_errors_to_dynamic_errors(
-  errors: List(decode.DecodeError),
-) -> List(dynamic.DecodeError) {
-  list.map(errors, fn(error) {
-    let decode.DecodeError(expected, found, path) = error
-
-    dynamic.DecodeError(expected, found, path)
   })
 }
 
