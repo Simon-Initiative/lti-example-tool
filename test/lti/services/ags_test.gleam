@@ -1,6 +1,7 @@
 import gleam/http
 import gleam/http/request.{type Request}
 import gleam/http/response
+import gleam/option.{Some}
 import gleeunit/should
 import lti/providers/http_mock_provider
 import lti/services/access_token.{AccessToken}
@@ -36,7 +37,7 @@ pub fn post_score_test() {
 
   let line_item =
     LineItem(
-      id: "https://example.edu/lineitem/123",
+      id: Some("https://lms.example.com/context/2923/lineitems/1"),
       score_maximum: 2.0,
       label: "Test Line Item",
       resource_id: "resource123",

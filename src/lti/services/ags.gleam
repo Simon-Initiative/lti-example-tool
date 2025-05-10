@@ -5,7 +5,7 @@ import gleam/http
 import gleam/http/request.{type Request}
 import gleam/json
 import gleam/list
-import gleam/option.{type Option}
+import gleam/option.{type Option, None}
 import gleam/result
 import gleam/string
 import gleam/uri
@@ -30,7 +30,10 @@ pub fn post_score(
   line_item: LineItem,
   access_token: AccessToken,
 ) -> Result(String, String) {
-  let url = build_url_with_path(line_item.id, "scores")
+  use line_item_id <- result.try(
+    line_item.id |> option.to_result("Missing line item ID"),
+  )
+  let url = build_url_with_path(line_item_id, "scores")
   let body =
     score.to_json(score)
     |> json.to_string()
@@ -126,7 +129,7 @@ pub fn create_line_item(
 ) -> Result(LineItem, String) {
   let line_item =
     LineItem(
-      id: "",
+      id: None,
       score_maximum: score_maximum,
       label: label,
       resource_id: resource_id,
