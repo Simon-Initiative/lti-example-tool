@@ -31,7 +31,7 @@ pub fn post_score_test() {
       user_id: "user123",
       comment: "Great job!",
       activity_progress: "Completed",
-      grading_progress: "Graded",
+      grading_progress: "FullyGraded",
     )
 
   let line_item =

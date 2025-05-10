@@ -5,6 +5,7 @@ import gleam/http
 import gleam/http/request.{type Request}
 import gleam/json
 import gleam/list
+import gleam/option.{type Option}
 import gleam/result
 import gleam/string
 import gleam/uri
@@ -13,6 +14,7 @@ import lti/services/access_token.{type AccessToken, AccessToken}
 import lti/services/ags/line_item.{type LineItem, LineItem}
 import lti/services/ags/score.{type Score}
 import lti/utils.{json_decoder}
+import lti_example_tool/utils/logger
 
 pub const lti_ags_claim_url = "https://purl.imsglobal.org/spec/lti-ags/claim/endpoint"
 
@@ -49,10 +51,10 @@ pub fn post_score(
     Ok(res) ->
       case res.status {
         200 | 201 -> Ok(res.body)
-        _ -> Error("Error posting score")
+        _ -> Error("Unexpected status: " <> string.inspect(res))
       }
 
-    _ -> Error("Error posting score")
+    e -> Error("Error posting score: " <> string.inspect(e))
   }
 }
 
@@ -122,7 +124,13 @@ pub fn create_line_item(
   label: String,
   access_token: AccessToken,
 ) -> Result(LineItem, String) {
-  let line_item = LineItem("", score_maximum, resource_id, label)
+  let line_item =
+    LineItem(
+      id: "",
+      score_maximum: score_maximum,
+      label: label,
+      resource_id: resource_id,
+    )
 
   let body =
     line_item.to_json(line_item)
@@ -137,6 +145,7 @@ pub fn create_line_item(
 
   let req =
     req
+    |> set_line_items_headers()
     |> set_authorization_header(access_token)
     |> request.set_method(http.Post)
     |> request.set_body(body)
@@ -145,15 +154,21 @@ pub fn create_line_item(
     Ok(res) ->
       case res.status {
         200 | 201 -> {
-          case json.decode(res.body, json_decoder(line_item.decoder())) {
-            Ok(raw_line_item) -> Ok(raw_line_item)
-            _ -> Error("Error creating new line item")
-          }
+          json.decode(res.body, json_decoder(line_item.decoder()))
+          |> result.map_error(fn(e) {
+            "Error decoding line item: " <> string.inspect(e)
+          })
         }
-        _ -> Error("Error creating new line item")
+        e -> {
+          logger.error_meta("Error creating line item", res)
+          Error("Unexpected status: " <> string.inspect(e))
+        }
       }
 
-    _ -> Error("Error creating new line item")
+    e -> {
+      logger.error_meta("Error creating line item", e)
+      Error("Error creating new line item")
+    }
   }
 }
 
@@ -164,23 +179,62 @@ pub fn grade_passback_available(
 ) -> Bool {
   {
     use lti_ags_claim <- result.try(
-      dict.get(lti_launch_claims, lti_ags_claim_url)
-      |> result.replace_error(False)
-      |> result.then(fn(c) {
-        decode.run(c, decode.dict(decode.string, decode.string))
-        |> result.replace_error(False)
-      }),
+      get_lti_ags_claim(lti_launch_claims) |> result.replace_error(False),
     )
 
-    use scopes <- result.try(
-      dict.get(lti_ags_claim, "scope") |> result.replace_error(False),
-    )
-
-    let scopes = string.split(scopes, " ")
-
-    Ok(list.contains(scopes, result_readonly_scope_url))
+    Ok(list.contains(lti_ags_claim.scope, result_readonly_scope_url))
   }
   |> result.unwrap_both()
+}
+
+pub fn get_line_items_service_url(
+  lti_launch_claims: Dict(String, Dynamic),
+) -> Result(String, String) {
+  {
+    use lti_ags_claim <- result.try(get_lti_ags_claim(lti_launch_claims))
+
+    Ok(lti_ags_claim.lineitems)
+  }
+}
+
+type LtiAgsClaim {
+  LtiAgsClaim(
+    lineitems: String,
+    scope: List(String),
+    errors: Dict(String, Dynamic),
+    validation_context: Option(Dynamic),
+  )
+}
+
+fn get_lti_ags_claim(
+  claims: Dict(String, Dynamic),
+) -> Result(LtiAgsClaim, String) {
+  let lti_ags_claim_decoder = {
+    use lineitems <- decode.field("lineitems", decode.string)
+    use scope <- decode.field("scope", decode.list(decode.string))
+    use errors <- decode.field(
+      "errors",
+      decode.dict(decode.string, decode.dynamic),
+    )
+    use validation_context <- decode.field(
+      "validation_context",
+      decode.optional(decode.dynamic),
+    )
+
+    decode.success(LtiAgsClaim(
+      lineitems: lineitems,
+      scope: scope,
+      errors: errors,
+      validation_context: validation_context,
+    ))
+  }
+
+  dict.get(claims, lti_ags_claim_url)
+  |> result.replace_error("Missing LTI AGS claim")
+  |> result.then(fn(c) {
+    decode.run(c, lti_ags_claim_decoder)
+    |> result.replace_error("Invalid LTI AGS claim")
+  })
 }
 
 fn set_line_items_headers(req: Request(String)) -> Request(String) {
