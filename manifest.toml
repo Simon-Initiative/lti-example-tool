@@ -48,6 +48,7 @@ argv = { version = ">= 1.0.2 and < 2.0.0" }
 birl = { version = ">= 1.8.0 and < 2.0.0" }
 envoy = { version = ">= 1.0.2 and < 2.0.0" }
 glaml = { version = ">= 3.0.2 and < 4.0.0" }
+gleam_crypto = { version = ">= 1.5.0 and < 2.0.0" }
 gleam_erlang = { version = "~> 0.23" }
 gleam_http = { version = "~> 3.5" }
 gleam_httpc = { version = ">= 4.1.0 and < 5.0.0" }

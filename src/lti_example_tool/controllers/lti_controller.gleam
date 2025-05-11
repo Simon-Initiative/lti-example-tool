@@ -16,14 +16,13 @@ import lti/jose
 import lti/jwk.{type Jwk}
 import lti/services/access_token
 import lti/services/ags
-import lti/services/ags/line_item.{LineItem}
 import lti/services/ags/score.{Score}
 import lti/tool
 import lti_example_tool/app_context.{type AppContext}
 import lti_example_tool/cookies.{require_cookie, set_cookie}
 import lti_example_tool/database.{type Record, Record}
 import lti_example_tool/html.{render_error_page, render_page} as _
-import lti_example_tool/html/components.{DangerLink, Link, Primary, Secondary}
+import lti_example_tool/html/components.{Primary}
 import lti_example_tool/html/forms
 import lti_example_tool/html/tables.{Column}
 import lti_example_tool/jwks
@@ -226,11 +225,6 @@ pub fn send_score(req: Request, app: AppContext) -> Response {
     use user_id <- result.try(
       list.key_find(formdata.values, "user_id")
       |> result.replace_error("Missing user_id"),
-    )
-
-    use resource_id <- result.try(
-      list.key_find(formdata.values, "resource_id")
-      |> result.replace_error("Missing resource_id"),
     )
 
     use registration <- result.try(

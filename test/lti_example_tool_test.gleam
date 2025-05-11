@@ -1,5 +1,4 @@
-import gleam/http/request.{type Request}
-import gleam/http/response.{type Response}
+import gleam/http/response
 import gleam/list
 import gleam/result
 import gleam/string
