@@ -48,7 +48,7 @@ pub fn page_layout(page_title: String) {
         [
           div([class("flex-1 flex flex-row")], [
             div([class("flex-1 my-6 px-3")], [
-              h1([class("max-w-sm mx-auto text-xl text-center mb-4")], [
+              h1([class("max-w-sm mx-auto text-2xl text-center mb-4")], [
                 text(page_title),
               ]),
               ..inner_content

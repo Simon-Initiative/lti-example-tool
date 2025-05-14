@@ -9,7 +9,7 @@ import gleam/http/cookie
 import gleam/int
 import gleam/json
 import gleam/list
-import gleam/option.{Some}
+import gleam/option.{None, Some}
 import gleam/result
 import gleam/string
 import lti/jose
@@ -29,8 +29,8 @@ import lti_example_tool/jwks
 import lti_example_tool/registrations
 import lti_example_tool/utils/logger
 import lustre/attribute.{action, class, method, name, type_, value}
-import lustre/element.{type Element, none}
-import lustre/element/html.{div, form, input, span, text}
+import lustre/element.{type Element}
+import lustre/element/html.{div, form, h2, i, input, section, span, text}
 import wisp.{type Request, type Response, redirect}
 
 pub fn oidc_login(req: Request, app: AppContext) -> Response {
@@ -86,8 +86,10 @@ pub fn validate_launch(req: Request, app: AppContext) -> Response {
   case tool.validate_launch(app.providers.data, params, session_state) {
     Ok(claims) -> {
       render_page("Launch Successful", [
-        claims_table(claims),
-        send_grade_form(app, claims),
+        div([class("container mx-auto flex flex-col gap-12")], [
+          claims_section(claims),
+          ags_section(app, claims),
+        ]),
       ])
     }
     Error(e) -> {
@@ -98,8 +100,13 @@ pub fn validate_launch(req: Request, app: AppContext) -> Response {
   }
 }
 
-fn claims_table(claims: Dict(String, Dynamic)) -> Element(a) {
-  div([class("container")], [
+fn heading(content: String) -> Element(a) {
+  h2([class("text-xl font-bold mb-2")], [text(content)])
+}
+
+fn claims_section(claims: Dict(String, Dynamic)) -> Element(a) {
+  section([], [
+    heading("ID Token Claims"),
     tables.table(
       [],
       [
@@ -122,8 +129,8 @@ fn decode_string(d: Dynamic) -> Result(String, String) {
   |> result.replace_error("Invalid string: " <> string.inspect(d))
 }
 
-fn send_grade_form(app: AppContext, claims: Dict(String, Dynamic)) -> Element(a) {
-  {
+fn ags_section(app: AppContext, claims: Dict(String, Dynamic)) -> Element(a) {
+  let form = {
     use user_id <- result.try(
       dict.get(claims, "sub")
       |> result.replace_error("Missing user_id")
@@ -160,44 +167,87 @@ fn send_grade_form(app: AppContext, claims: Dict(String, Dynamic)) -> Element(a)
       |> result.then(decode_string),
     )
 
+    use line_items_service_url <- result.try(ags.get_line_items_service_url(
+      claims,
+    ))
+
     use registration <- result.try(
       registrations.get_by_issuer_client_id(app.db, issuer, client_id)
       |> result.replace_error("Error fetching registration"),
     )
 
-    div([class("container")], [
-      div([class("text-2xl font-bold")], [text("Send Grade")]),
-      div([class("mt-4")], [
-        form([method("post"), action("/score")], [
-          forms.labeled_input("Score Given", "score_given"),
-          forms.labeled_input("Score Maximum", "score_maximum"),
-          forms.labeled_input("Comment", "comment"),
-          input([type_("hidden"), name("user_id"), value(user_id)]),
-          input([type_("hidden"), name("resource_id"), value(resource_id)]),
-          input([
-            type_("hidden"),
-            name("registration_id"),
-            value(int.to_string(registration.id)),
-          ]),
-          case ags.get_line_items_service_url(claims) {
-            Ok(endpoint) -> {
-              input([
-                type_("hidden"),
-                name("line_items_service_url"),
-                value(endpoint),
-              ])
-            }
-            Error(_) -> none()
-          },
-          components.button(Primary, [class("my-8"), type_("submit")], [
-            text("Send Grade"),
-          ]),
-        ]),
+    form([method("post"), action("/score")], [
+      div([class("my-2 text-gray-500")], [
+        span([class("my-2 font-mono")], [text(line_items_service_url)]),
+      ]),
+      forms.labeled_input(
+        "Line Item ID",
+        "line_item_id",
+        Some("example_assignment"),
+      ),
+      forms.labeled_input(
+        "Line Item Name",
+        "line_item_name",
+        Some("Example Assignment"),
+      ),
+      forms.labeled_input("Score Given", "score_given", None),
+      forms.labeled_input("Score Maximum", "score_maximum", None),
+      forms.labeled_input("Comment", "comment", None),
+      input([type_("hidden"), name("user_id"), value(user_id)]),
+      input([type_("hidden"), name("resource_id"), value(resource_id)]),
+      input([
+        type_("hidden"),
+        name("registration_id"),
+        value(int.to_string(registration.id)),
+      ]),
+      input([
+        type_("hidden"),
+        name("line_items_service_url"),
+        value(line_items_service_url),
+      ]),
+      components.button(Primary, [class("my-8"), type_("submit")], [
+        text("Send Score"),
       ]),
     ])
     |> Ok
   }
-  |> result.unwrap(text("Error rendering form"))
+
+  section([], [
+    heading("Assignment and Grade Services"),
+    case form {
+      Ok(form) ->
+        div([], [
+          div([], [
+            i([class("fa-solid fa-circle-check text-green-500 mr-2")], []),
+            text("AGS Service is available"),
+          ]),
+          form,
+        ])
+      Error(reason) ->
+        div([], [
+          div([class("my-2 text-gray-500")], [text("Not available")]),
+          div([class("text-red-500")], [text(reason)]),
+        ])
+    },
+  ])
+}
+
+fn require_form_field(
+  formdata: wisp.FormData,
+  key: String,
+) -> Result(String, String) {
+  list.key_find(formdata.values, key)
+  |> result.replace_error("Missing " <> key)
+}
+
+fn parse_as_float(str: String) -> Result(Float, String) {
+  str
+  |> float.parse()
+  |> result.lazy_or(fn() {
+    int.parse(str)
+    |> result.map(int.to_float)
+  })
+  |> result.replace_error("Invalid number: " <> str)
 }
 
 pub fn send_score(req: Request, app: AppContext) -> Response {
@@ -205,32 +255,34 @@ pub fn send_score(req: Request, app: AppContext) -> Response {
   use formdata <- wisp.require_form(req)
 
   let result = {
+    use line_item_id <- result.try(require_form_field(formdata, "line_item_id"))
+    use line_item_name <- result.try(require_form_field(
+      formdata,
+      "line_item_name",
+    ))
+
     use score_given <- result.try(
-      list.key_find(formdata.values, "score_given")
-      |> result.then(float.parse)
+      require_form_field(formdata, "score_given")
+      |> result.then(parse_as_float)
       |> result.replace_error("Invalid score given"),
     )
 
     use score_maximum <- result.try(
-      list.key_find(formdata.values, "score_maximum")
-      |> result.then(float.parse)
+      require_form_field(formdata, "score_maximum")
+      |> result.then(parse_as_float)
       |> result.replace_error("Invalid score maximum"),
     )
 
-    use comment <- result.try(
-      list.key_find(formdata.values, "comment")
-      |> result.replace_error("Missing comment"),
-    )
+    use comment <- result.try(require_form_field(formdata, "comment"))
 
-    use user_id <- result.try(
-      list.key_find(formdata.values, "user_id")
-      |> result.replace_error("Missing user_id"),
-    )
+    use user_id <- result.try(require_form_field(formdata, "user_id"))
 
     use registration <- result.try(
-      list.key_find(formdata.values, "registration_id")
-      |> result.then(int.parse)
-      |> result.replace_error("Invalid registration_id")
+      require_form_field(formdata, "registration_id")
+      |> result.then(fn(value) {
+        int.parse(value)
+        |> result.replace_error("Invalid registration_id")
+      })
       |> result.then(fn(id) {
         registrations.get(app.db, id)
         |> result.replace_error("Error fetching registration")
@@ -261,34 +313,15 @@ pub fn send_score(req: Request, app: AppContext) -> Response {
     use line_items_service_url <- result.try(
       list.key_find(formdata.values, "line_items_service_url")
       |> result.replace_error("Missing line_items_service_url"),
-      // result.or(
-    //   list.key_find(formdata.values, "grade_passback_endpoint"),
-    //   ags.create_line_item(
-    //     app.providers.http,
-    //     line_item,
-    //     access_token,
-    //     registration,
-    //   ),
-    // ),
     )
-
-    // let line_item =
-    //   LineItem(
-    //     id: line_item_id,
-    //     score_maximum: score_maximum,
-    //     resource_id: resource_id,
-    //     label: "label",
-    //   )
-
-    // ags.post_score(app.providers.http, score, line_item, access_token)
 
     case
       ags.fetch_or_create_line_item(
         app.providers.http,
         line_items_service_url,
-        "test_resource_id",
+        line_item_id,
         fn() { 1.0 },
-        "Test Line Item",
+        line_item_name,
         access_token,
       )
     {
@@ -304,9 +337,11 @@ pub fn send_score(req: Request, app: AppContext) -> Response {
 
   case result {
     Ok(_) -> {
-      render_page("Score sent successfully", [
-        div([class("container")], [
-          div([class("text-2xl font-bold")], [text("Score sent successfully")]),
+      render_page("Success", [
+        div([class("container mx-auto")], [
+          div([class("text-green-500 text-center")], [
+            text("Score update was successfully sent!"),
+          ]),
         ]),
       ])
     }

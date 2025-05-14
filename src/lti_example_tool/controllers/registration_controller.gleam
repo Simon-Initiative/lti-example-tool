@@ -1,6 +1,7 @@
 import gleam/http.{Get, Post}
 import gleam/int
 import gleam/list
+import gleam/option.{None}
 import gleam/result
 import gleam/string
 import lti/deployment.{Deployment}
@@ -93,13 +94,17 @@ pub fn new() -> Response {
     components.card([class("max-w-sm mx-auto")], [
       form([method("post"), action("/registrations")], [
         div([class("flex flex-col")], [
-          forms.labeled_input("Name", "name"),
-          forms.labeled_input("Issuer", "issuer"),
-          forms.labeled_input("Client ID", "client_id"),
-          forms.labeled_input("Auth Endpoint", "auth_endpoint"),
-          forms.labeled_input("Access Token Endpoint", "access_token_endpoint"),
-          forms.labeled_input("Keyset URL", "keyset_url"),
-          forms.labeled_input("Deployment ID", "deployment_id"),
+          forms.labeled_input("Name", "name", None),
+          forms.labeled_input("Issuer", "issuer", None),
+          forms.labeled_input("Client ID", "client_id", None),
+          forms.labeled_input("Auth Endpoint", "auth_endpoint", None),
+          forms.labeled_input(
+            "Access Token Endpoint",
+            "access_token_endpoint",
+            None,
+          ),
+          forms.labeled_input("Keyset URL", "keyset_url", None),
+          forms.labeled_input("Deployment ID", "deployment_id", None),
           components.button(Primary, [class("my-8"), type_("submit")], [
             text("Register"),
           ]),

@@ -306,10 +306,10 @@ fn validate_nonce(claims: Claims, provider: DataProvider) {
   case data_provider.validate_nonce(provider, nonce) {
     Ok(_) -> Ok(claims)
 
-    Error(_) -> {
-      logger.error_meta("Failed to validate nonce", claims)
+    Error(e) -> {
+      logger.error_meta("Failed to validate nonce: " <> e, claims)
 
-      Error("Invalid nonce")
+      Error(e)
     }
   }
 }
