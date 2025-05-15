@@ -4,7 +4,7 @@ import gleam/dict
 import gleam/dynamic
 import gleam/dynamic/decode
 import gleam/http
-import gleam/http/request
+import gleam/http/request.{type Request}
 import gleam/json
 import gleam/option.{type Option, None, Some}
 import gleam/result
@@ -179,4 +179,14 @@ fn audience(auth_token_url: String, auth_audience: Option(String)) -> String {
     Some("") -> auth_token_url
     Some(audience) -> audience
   }
+}
+
+pub fn set_authorization_header(
+  req: Request(String),
+  access_token: AccessToken,
+) -> Request(String) {
+  let AccessToken(access_token: access_token, ..) = access_token
+
+  req
+  |> request.set_header("Authorization", "Bearer " <> access_token)
 }

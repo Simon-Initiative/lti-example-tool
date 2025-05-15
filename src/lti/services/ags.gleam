@@ -10,7 +10,7 @@ import gleam/result
 import gleam/string
 import gleam/uri
 import lti/providers/http_provider.{type HttpProvider}
-import lti/services/access_token.{type AccessToken, AccessToken}
+import lti/services/access_token.{type AccessToken, set_authorization_header}
 import lti/services/ags/line_item.{type LineItem, LineItem}
 import lti/services/ags/score.{type Score}
 import lti/utils.{json_decoder}
@@ -90,13 +90,19 @@ pub fn fetch_or_create_line_item(
     Ok(res) ->
       case res.status {
         200 | 201 -> {
-          case
+          use line_items <- result.try(
             json.decode(
               res.body,
               json_decoder(decode.list(line_item.decoder())),
             )
-          {
-            Ok([]) ->
+            |> result.map_error(fn(e) {
+              logger.error_meta("Error decoding line items", e)
+              "Error decoding line items"
+            }),
+          )
+
+          case line_items {
+            [] ->
               create_line_item(
                 http_provider,
                 line_items_service_url,
@@ -106,9 +112,7 @@ pub fn fetch_or_create_line_item(
                 access_token,
               )
 
-            Ok([raw_line_item, ..]) -> Ok(raw_line_item)
-
-            _ -> Error("Error decoding line items")
+            [raw_line_item, ..] -> Ok(raw_line_item)
           }
         }
 
@@ -200,8 +204,8 @@ pub fn get_line_items_service_url(
   }
 }
 
-type LtiAgsClaim {
-  LtiAgsClaim(
+type AgsClaim {
+  AgsClaim(
     lineitems: String,
     scope: List(String),
     errors: Dict(String, Dynamic),
@@ -209,9 +213,7 @@ type LtiAgsClaim {
   )
 }
 
-fn get_lti_ags_claim(
-  claims: Dict(String, Dynamic),
-) -> Result(LtiAgsClaim, String) {
+fn get_lti_ags_claim(claims: Dict(String, Dynamic)) -> Result(AgsClaim, String) {
   let lti_ags_claim_decoder = {
     use lineitems <- decode.field("lineitems", decode.string)
     use scope <- decode.field("scope", decode.list(decode.string))
@@ -224,7 +226,7 @@ fn get_lti_ags_claim(
       decode.optional(decode.dynamic),
     )
 
-    decode.success(LtiAgsClaim(
+    decode.success(AgsClaim(
       lineitems: lineitems,
       scope: scope,
       errors: errors,
@@ -259,16 +261,6 @@ fn set_score_headers(req: Request(String)) -> Request(String) {
     "Accept",
     "application/vnd.ims.lis.v2.lineitemcontainer+json",
   )
-}
-
-fn set_authorization_header(
-  req: Request(String),
-  access_token: AccessToken,
-) -> Request(String) {
-  let AccessToken(access_token: access_token, ..) = access_token
-
-  req
-  |> request.set_header("Authorization", "Bearer " <> access_token)
 }
 
 fn build_url_with_path(base: String, path: String) -> String {

@@ -25,6 +25,8 @@ pub fn handle_request(req: Request, app: AppContext) -> Response {
 
     ["score"] -> lti_controller.send_score(req, app)
 
+    ["memberships"] -> lti_controller.fetch_memberships(req, app)
+
     // TODO: REMOVE
     ["lti", "login"] -> lti_controller.oidc_login(req, app)
     ["lti", "launch"] -> lti_controller.validate_launch(req, app)

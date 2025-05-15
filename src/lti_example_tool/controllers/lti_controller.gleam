@@ -17,6 +17,8 @@ import lti/jwk.{type Jwk}
 import lti/services/access_token
 import lti/services/ags
 import lti/services/ags/score.{Score}
+import lti/services/nrps
+import lti/services/nrps/membership.{type Membership}
 import lti/tool
 import lti_example_tool/app_context.{type AppContext}
 import lti_example_tool/cookies.{require_cookie, set_cookie}
@@ -28,9 +30,9 @@ import lti_example_tool/html/tables.{Column}
 import lti_example_tool/jwks
 import lti_example_tool/registrations
 import lti_example_tool/utils/logger
-import lustre/attribute.{action, class, method, name, type_, value}
+import lustre/attribute.{action, class, method, name, src, type_, value}
 import lustre/element.{type Element}
-import lustre/element/html.{div, form, h2, i, input, section, span, text}
+import lustre/element/html.{div, form, h2, i, img, input, section, span, text}
 import wisp.{type Request, type Response, redirect}
 
 pub fn oidc_login(req: Request, app: AppContext) -> Response {
@@ -89,6 +91,7 @@ pub fn validate_launch(req: Request, app: AppContext) -> Response {
         div([class("container mx-auto flex flex-col gap-12")], [
           claims_section(claims),
           ags_section(app, claims),
+          nrps_section(app, claims),
         ]),
       ])
     }
@@ -358,6 +361,153 @@ pub fn send_score(req: Request, app: AppContext) -> Response {
       logger.error_meta("Error sending score", e)
 
       render_error_page("Error sending score: " <> string.inspect(e))
+    }
+  }
+}
+
+pub fn nrps_section(
+  app: AppContext,
+  claims: Dict(String, Dynamic),
+) -> Element(a) {
+  let form = {
+    use context_memberships_url <- result.try(nrps.get_membership_service_url(
+      claims,
+    ))
+
+    use issuer <- result.try(
+      dict.get(claims, "iss")
+      |> result.replace_error("Missing iss")
+      |> result.then(decode_string),
+    )
+
+    use client_id <- result.try(
+      dict.get(claims, "aud")
+      |> result.replace_error("Missing aud")
+      |> result.then(decode_string),
+    )
+
+    use registration <- result.try(
+      registrations.get_by_issuer_client_id(app.db, issuer, client_id)
+      |> result.replace_error("Error fetching registration"),
+    )
+
+    form([method("post"), action("/memberships")], [
+      div([class("my-2 text-gray-500")], [
+        span([class("my-2 font-mono")], [text(context_memberships_url)]),
+      ]),
+      input([
+        type_("hidden"),
+        name("context_memberships_url"),
+        value(context_memberships_url),
+      ]),
+      input([
+        type_("hidden"),
+        name("registration_id"),
+        value(int.to_string(registration.id)),
+      ]),
+      components.button(Primary, [class("my-8"), type_("submit")], [
+        text("Fetch Memberships"),
+      ]),
+    ])
+    |> Ok
+  }
+
+  section([], [
+    heading("Names and Roles Provisioning Services"),
+    case form {
+      Ok(form) ->
+        div([], [
+          div([class("my-2")], [
+            i([class("fa-solid fa-circle-check text-green-500 mr-2")], []),
+            text("NRPS Service is available"),
+          ]),
+          form,
+        ])
+      Error(reason) ->
+        div([], [
+          div([class("my-2")], [
+            i([class("fa-solid fa-circle-xmark text-gray-500 mr-2")], []),
+            text("NRPS Service is not available"),
+          ]),
+          div([class("text-red-500")], [text(reason)]),
+        ])
+    },
+  ])
+}
+
+pub fn fetch_memberships(req: Request, app: AppContext) -> Response {
+  use <- wisp.require_method(req, http.Post)
+  use formdata <- wisp.require_form(req)
+
+  let result = {
+    use context_memberships_url <- result.try(
+      require_form_field(formdata, "context_memberships_url")
+      |> result.replace_error("Missing context_memberships_url"),
+    )
+
+    use registration <- result.try(
+      require_form_field(formdata, "registration_id")
+      |> result.then(fn(value) {
+        int.parse(value)
+        |> result.replace_error("Invalid registration_id")
+      })
+      |> result.then(fn(id) {
+        registrations.get(app.db, id)
+        |> result.replace_error("Error fetching registration")
+      })
+      |> result.map(fn(record) { record.data }),
+    )
+
+    use access_token <- result.try(
+      access_token.fetch_access_token(app.providers, registration, [
+        nrps.context_membership_readonly_claim_url,
+      ])
+      |> result.replace_error("Error fetching access token"),
+    )
+
+    nrps.fetch_memberships(
+      app.providers.http,
+      context_memberships_url,
+      access_token,
+    )
+  }
+
+  case result {
+    Ok(memberships) -> {
+      render_page("Memberships", [
+        div([class("container mx-auto")], [
+          div([class("overflow-x-auto")], [
+            tables.table(
+              [],
+              [
+                Column("", fn(m: Membership) {
+                  img([
+                    src(m.picture),
+                    class(
+                      "w-10 min-w-10 h-10 rounded-full object-cover border-2 border-gray-100",
+                    ),
+                  ])
+                }),
+                Column("Name", fn(m: Membership) { text(m.name) }),
+                Column("User ID", fn(m: Membership) {
+                  span([class("font-mono")], [text(m.user_id)])
+                }),
+                Column("Status", fn(m: Membership) { text(m.status) }),
+                Column("Roles", fn(m: Membership) {
+                  text(string.inspect(m.roles))
+                }),
+                Column("Email", fn(m: Membership) { text(m.email) }),
+              ],
+              memberships,
+            ),
+          ]),
+        ]),
+      ])
+    }
+    Error(e) -> {
+      logger.error_meta("Error fetching memberships", e)
+
+      render_error_page("Error fetching memberships: " <> string.inspect(e))
     }
   }
 }
