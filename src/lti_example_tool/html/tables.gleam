@@ -1,7 +1,7 @@
 import gleam/list
 import lustre/attribute.{type Attribute, class}
 import lustre/element.{type Element}
-import lustre/element/html.{tbody, td, text, th, thead, tr}
+import lustre/element/html.{div, tbody, td, text, th, thead, tr}
 
 pub type Column(msg, d) {
   Column(label: String, renderer: fn(d) -> Element(msg))
@@ -12,9 +12,8 @@ pub fn table(
   columns: List(Column(msg, d)),
   data: List(d),
 ) -> Element(msg) {
-  html.table(
-    [class("table-fixed w-full text-sm text-left rtl:text-right"), ..attrs],
-    [
+  div([class("relative overflow-x-auto border border-gray-100")], [
+    html.table([class("w-full text-sm text-left rtl:text-right"), ..attrs], [
       thead(
         [
           class(
@@ -52,6 +51,6 @@ pub fn table(
           )
         }),
       ),
-    ],
-  )
+    ]),
+  ])
 }

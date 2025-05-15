@@ -106,21 +106,27 @@ fn heading(content: String) -> Element(a) {
 
 fn claims_section(claims: Dict(String, Dynamic)) -> Element(a) {
   section([], [
-    heading("ID Token Claims"),
-    tables.table(
-      [],
-      [
-        Column("Claim", fn(record: #(String, Dynamic)) {
-          let #(claim, _value) = record
-          span([class("font-semibold")], [text(claim)])
-        }),
-        Column("Value", fn(record: #(String, Dynamic)) {
-          let #(_key, value) = record
-          text(string.inspect(value))
-        }),
-      ],
-      dict.to_list(claims),
-    ),
+    heading("ID Token"),
+    div([], [
+      div([class("my-2")], [
+        i([class("fa-solid fa-circle-check text-green-500 mr-2")], []),
+        text("Token is signed and verified"),
+      ]),
+      tables.table(
+        [],
+        [
+          Column("Claim", fn(record: #(String, Dynamic)) {
+            let #(claim, _value) = record
+            span([class("font-semibold")], [text(claim)])
+          }),
+          Column("Value", fn(record: #(String, Dynamic)) {
+            let #(_key, value) = record
+            text(string.inspect(value))
+          }),
+        ],
+        dict.to_list(claims),
+      ),
+    ]),
   ])
 }
 
@@ -217,7 +223,7 @@ fn ags_section(app: AppContext, claims: Dict(String, Dynamic)) -> Element(a) {
     case form {
       Ok(form) ->
         div([], [
-          div([], [
+          div([class("my-2")], [
             i([class("fa-solid fa-circle-check text-green-500 mr-2")], []),
             text("AGS Service is available"),
           ]),
