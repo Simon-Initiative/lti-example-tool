@@ -39,7 +39,7 @@ Interoperability) specification.
 - **Keyset URL**: `http://localhost:8080/.well-known/jwks.json`
 - **Redirect URIs**: `http://localhost:8080/launch`
 
-5. Create a Registration in the tool with the relevant parameters from your LMS or Platform. For example:
+5. Create a Registration in the tool with the relevant parameters from your LMS or Platform.
 
 - **Name**: `Platform Name`
 - **Issuer**: `https://platform.example.edu`
@@ -48,6 +48,11 @@ Interoperability) specification.
 - **Access Token Endpoint**: `https://platform.example.edu/auth/token`
 - **Keyset URL**: `https://platform.example.edu/.well-known/jwks.json`
 - **Deployment ID**: `some-deployment-id`
+
+> **NOTE:** This address must be a FQDN (Fully Qualified Domain Name) and will not work with another
+> `localhost` application, since the tool will be running isolated in a container. You can use `ngrok` to
+> expose your localhost platform to the internet if necessary -or- if you are running the example
+> tool natively using the development instructions below, then you can use `localhost` as the address.
 
 ## Development
 
