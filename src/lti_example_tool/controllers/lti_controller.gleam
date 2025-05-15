@@ -109,8 +109,8 @@ fn claims_section(claims: Dict(String, Dynamic)) -> Element(a) {
     heading("ID Token"),
     div([], [
       div([class("my-2")], [
-        i([class("fa-solid fa-circle-check text-green-500 mr-2")], []),
-        text("Token is signed and verified"),
+        i([class("fa-solid fa-lock text-green-500 mr-2")], []),
+        text("Token signature verified"),
       ]),
       tables.table(
         [],
@@ -231,7 +231,10 @@ fn ags_section(app: AppContext, claims: Dict(String, Dynamic)) -> Element(a) {
         ])
       Error(reason) ->
         div([], [
-          div([class("my-2 text-gray-500")], [text("Not available")]),
+          div([class("my-2")], [
+            i([class("fa-solid fa-circle-xmark text-gray-500 mr-2")], []),
+            text("AGS Service is not available"),
+          ]),
           div([class("text-red-500")], [text(reason)]),
         ])
     },

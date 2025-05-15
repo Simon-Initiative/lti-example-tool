@@ -44,7 +44,11 @@ pub fn table(
         [],
         list.map(data, fn(d) {
           tr(
-            [class("bg-white border-b dark:bg-gray-800 dark:border-gray-700")],
+            [
+              class(
+                "bg-white border-b last-of-type:border-none dark:bg-gray-800 dark:border-gray-700",
+              ),
+            ],
             list.map(columns, fn(c) {
               td([class("px-6 py-4 wrap-break-word")], [c.renderer(d)])
             }),
