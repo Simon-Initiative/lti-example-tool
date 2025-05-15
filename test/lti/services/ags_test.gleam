@@ -38,6 +38,12 @@ pub fn post_score_test() {
     )
 
   let expect_http_post = fn(req: Request(String)) {
+    req.scheme
+    |> should.equal(http.Https)
+
+    req.host
+    |> should.equal("lms.example.com")
+
     req.path
     |> should.equal("/context/2923/lineitems/1/scores")
 
