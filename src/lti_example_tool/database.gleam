@@ -4,14 +4,19 @@ import gleam/int
 import gleam/list
 import gleam/result
 import gleam/string
+import lti_example_tool/config
 import lti_example_tool/utils/logger
 import pog.{type Connection}
 
 pub type Database =
   Connection
 
-pub fn connect(config: pog.Config) -> Database {
-  let db = pog.connect(config)
+pub fn connect() -> Result(Database, String) {
+  let url = config.database_url()
+  use db_config <- result.try(
+    pog.url_config(url) |> result.map_error(string.inspect),
+  )
+  let db = pog.connect(db_config)
 
   // verify connection was successful
   case
@@ -19,23 +24,17 @@ pub fn connect(config: pog.Config) -> Database {
     |> pog.returning(decode.at([0], decode.int))
     |> pog.execute(db)
   {
-    Ok(_) -> db
+    Ok(_) -> Ok(db)
     Error(err) -> {
       logger.error_meta("Failed to connect to database", err)
 
-      panic
+      Error("Failed to connect to database")
     }
   }
 }
 
 pub fn disconnect(db: Connection) {
   pog.disconnect(db)
-}
-
-pub fn config_from_url(url: String) -> pog.Config {
-  let assert Ok(db_config) = pog.url_config(url)
-
-  db_config
 }
 
 pub type Record(pk, a) {

@@ -11,7 +11,6 @@ import lti/providers/memory_provider
 import lti/registration.{Registration}
 import lti_example_tool/app_context.{AppContext}
 import lti_example_tool/config
-import lti_example_tool/database
 import lti_example_tool/env
 import lti_example_tool/router
 import pog
@@ -23,12 +22,16 @@ pub fn main() {
 
 fn test_db() {
   config.database_url()
-  |> database.config_from_url()
-  |> fn(config) { pog.Config(..config, database: config.database <> "_test") }
-  |> database.connect()
+  |> pog.url_config()
+  |> result.map(fn(db_config) {
+    pog.connect(
+      pog.Config(..db_config, database: db_config.database <> "_test"),
+    )
+  })
 }
 
 fn setup() {
+  let assert Ok(db) = test_db()
   let assert Ok(memory_provider) = memory_provider.start()
   let assert Ok(lti_data_provider) =
     memory_provider.data_provider(memory_provider)
@@ -45,7 +48,7 @@ fn setup() {
       env: env.Test,
       port: 8080,
       secret_key_base: "secret_key_base",
-      db: test_db(),
+      db: db,
       static_directory: "static_directory",
       providers: providers.Providers(lti_data_provider, http_provider),
     ),

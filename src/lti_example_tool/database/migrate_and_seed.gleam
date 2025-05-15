@@ -19,26 +19,26 @@ pub fn main() {
 
   let database_url = config.database_url()
 
-  let db_config = database.config_from_url(database_url)
+  let assert Ok(db_config) = pog.url_config(database_url)
   let test_db_config =
     pog.Config(..db_config, database: db_config.database <> "_test")
 
   case argv.load().arguments {
     ["migrate"] -> {
-      let db = database.connect(db_config)
+      let db = pog.connect(db_config)
 
       let assert Ok(_) = migrate(db)
 
-      database.disconnect(db)
+      pog.disconnect(db)
 
       Nil
     }
     ["seed"] -> {
-      let db = database.connect(db_config)
+      let db = pog.connect(db_config)
 
       let _ = seed(db)
 
-      database.disconnect(db)
+      pog.disconnect(db)
 
       Nil
     }
@@ -46,12 +46,12 @@ pub fn main() {
     ["test.setup"] -> {
       create_database(test_db_config)
 
-      let db = database.connect(test_db_config)
+      let db = pog.connect(test_db_config)
 
       let assert Ok(_) = migrate(db)
       let _ = seed(db)
 
-      database.disconnect(db)
+      pog.disconnect(db)
 
       Nil
     }
@@ -125,12 +125,12 @@ fn db_exists(db_config: pog.Config) -> Bool {
 fn setup(db_config) {
   create_database(db_config)
 
-  let db = database.connect(db_config)
+  let db = pog.connect(db_config)
 
   let assert Ok(_) = migrate(db)
   let _ = seed(db)
 
-  database.disconnect(db)
+  pog.disconnect(db)
 
   Nil
 }
@@ -175,13 +175,13 @@ fn reset(db_config: pog.Config) {
   drop_database(db_config)
   create_database(db_config)
 
-  let db = database.connect(db_config)
+  let db = pog.connect(db_config)
 
   use _ <- result.try(migrate(db))
 
   let _ = seed(db)
 
-  database.disconnect(db)
+  pog.disconnect(db)
 
   logger.info("Database reset.")
 

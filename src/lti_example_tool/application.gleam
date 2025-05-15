@@ -17,10 +17,7 @@ pub fn setup() -> AppContext {
 
   migrate_and_seed.initialize_db()
 
-  let db =
-    config.database_url()
-    |> database.config_from_url()
-    |> database.connect()
+  let assert Ok(db) = database.connect()
 
   let assert Ok(lti_data_provider) = db_provider.data_provider(db)
 

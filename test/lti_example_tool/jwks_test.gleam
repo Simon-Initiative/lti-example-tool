@@ -1,19 +1,22 @@
+import gleam/result
 import gleeunit/should
 import lti/jwk
 import lti_example_tool/config
-import lti_example_tool/database
 import lti_example_tool/jwks
 import pog
 
 fn test_db() {
   config.database_url()
-  |> database.config_from_url()
-  |> fn(config) { pog.Config(..config, database: config.database <> "_test") }
-  |> database.connect()
+  |> pog.url_config()
+  |> result.map(fn(db_config) {
+    pog.connect(
+      pog.Config(..db_config, database: db_config.database <> "_test"),
+    )
+  })
 }
 
 pub fn active_jwk_test() {
-  let db = test_db()
+  let assert Ok(db) = test_db()
   let assert Ok(jwk) = jwk.generate()
 
   jwks.insert(db, jwk)
