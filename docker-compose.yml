@@ -1,5 +1,6 @@
 services:
   app:
+    image: ghcr.io/simon-initiative/lti-example-tool:latest
     build:
       context: .
       dockerfile: Dockerfile
