@@ -14,7 +14,7 @@ import lti_example_tool/database.{type Record, Record}
 import lti_example_tool/deployments
 import lti_example_tool/html.{render_error_page, render_page} as _
 import lti_example_tool/html/components.{DangerLink, Link, Primary, Secondary}
-import lti_example_tool/html/forms
+import lti_example_tool/html/forms.{Text}
 import lti_example_tool/html/tables.{Column}
 import lti_example_tool/registrations
 import lti_example_tool/utils/common.{try_with} as _
@@ -94,17 +94,18 @@ pub fn new() -> Response {
     components.card([class("max-w-sm mx-auto")], [
       form([method("post"), action("/registrations")], [
         div([class("flex flex-col")], [
-          forms.labeled_input("Name", "name", None),
-          forms.labeled_input("Issuer", "issuer", None),
-          forms.labeled_input("Client ID", "client_id", None),
-          forms.labeled_input("Auth Endpoint", "auth_endpoint", None),
+          forms.labeled_input(Text, "Name", "name", None),
+          forms.labeled_input(Text, "Issuer", "issuer", None),
+          forms.labeled_input(Text, "Client ID", "client_id", None),
+          forms.labeled_input(Text, "Auth Endpoint", "auth_endpoint", None),
           forms.labeled_input(
+            Text,
             "Access Token Endpoint",
             "access_token_endpoint",
             None,
           ),
-          forms.labeled_input("Keyset URL", "keyset_url", None),
-          forms.labeled_input("Deployment ID", "deployment_id", None),
+          forms.labeled_input(Text, "Keyset URL", "keyset_url", None),
+          forms.labeled_input(Text, "Deployment ID", "deployment_id", None),
           components.button(Primary, [class("my-8"), type_("submit")], [
             text("Register"),
           ]),

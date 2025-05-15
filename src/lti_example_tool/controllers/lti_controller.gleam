@@ -25,7 +25,7 @@ import lti_example_tool/cookies.{require_cookie, set_cookie}
 import lti_example_tool/database.{type Record, Record}
 import lti_example_tool/html.{render_error_page, render_page} as _
 import lti_example_tool/html/components.{Primary}
-import lti_example_tool/html/forms
+import lti_example_tool/html/forms.{Number, Text}
 import lti_example_tool/html/tables.{Column}
 import lti_example_tool/jwks
 import lti_example_tool/registrations
@@ -190,18 +190,20 @@ fn ags_section(app: AppContext, claims: Dict(String, Dynamic)) -> Element(a) {
         span([class("my-2 font-mono")], [text(line_items_service_url)]),
       ]),
       forms.labeled_input(
+        Text,
         "Line Item ID",
         "line_item_id",
         Some("example_assignment"),
       ),
       forms.labeled_input(
+        Text,
         "Line Item Name",
         "line_item_name",
         Some("Example Assignment"),
       ),
-      forms.labeled_input("Score Given", "score_given", None),
-      forms.labeled_input("Score Maximum", "score_maximum", None),
-      forms.labeled_input("Comment", "comment", None),
+      forms.labeled_input(Number, "Score Given", "score_given", None),
+      forms.labeled_input(Number, "Score Maximum", "score_maximum", None),
+      forms.labeled_input(Text, "Comment", "comment", None),
       input([type_("hidden"), name("user_id"), value(user_id)]),
       input([type_("hidden"), name("resource_id"), value(resource_id)]),
       input([
