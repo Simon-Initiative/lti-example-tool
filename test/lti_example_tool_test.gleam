@@ -10,13 +10,22 @@ import lti/providers/http_mock_provider
 import lti/providers/memory_provider
 import lti/registration.{Registration}
 import lti_example_tool/app_context.{AppContext}
+import lti_example_tool/config
 import lti_example_tool/database
 import lti_example_tool/env
 import lti_example_tool/router
+import pog
 import wisp/testing
 
 pub fn main() {
   gleeunit.main()
+}
+
+fn test_db() {
+  config.database_url()
+  |> database.config_from_url()
+  |> fn(config) { pog.Config(..config, database: config.database <> "_test") }
+  |> database.connect()
 }
 
 fn setup() {
@@ -36,7 +45,7 @@ fn setup() {
       env: env.Test,
       port: 8080,
       secret_key_base: "secret_key_base",
-      db: database.connect("lti_example_tool_test"),
+      db: test_db(),
       static_directory: "static_directory",
       providers: providers.Providers(lti_data_provider, http_provider),
     ),

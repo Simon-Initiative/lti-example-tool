@@ -8,7 +8,7 @@ import gleam/set
 import gleam/string
 import lti/jwk
 import lti_example_tool/config
-import lti_example_tool/database
+import lti_example_tool/database.{one}
 import lti_example_tool/jwks
 import lti_example_tool/seeds
 import lti_example_tool/utils/logger
@@ -17,12 +17,15 @@ import pog.{type Connection, type Returned}
 pub fn main() {
   logger.configure_backend()
 
-  let db_name = config.db_name()
-  let test_db_name = db_name <> "_test"
+  let database_url = config.database_url()
+
+  let db_config = database.config_from_url(database_url)
+  let test_db_config =
+    pog.Config(..db_config, database: db_config.database <> "_test")
 
   case argv.load().arguments {
     ["migrate"] -> {
-      let db = database.connect(db_name)
+      let db = database.connect(db_config)
 
       let assert Ok(_) = migrate(db)
 
@@ -31,7 +34,7 @@ pub fn main() {
       Nil
     }
     ["seed"] -> {
-      let db = database.connect(db_name)
+      let db = database.connect(db_config)
 
       let _ = seed(db)
 
@@ -39,25 +42,11 @@ pub fn main() {
 
       Nil
     }
-    ["setup"] -> {
-      create_database(db_name)
-
-      let db = database.connect(db_name)
-
-      let assert Ok(_) = migrate(db)
-      let _ = seed(db)
-
-      database.disconnect(db)
-
-      Nil
-    }
+    ["setup"] -> setup(db_config)
     ["test.setup"] -> {
-      let db_name = config.db_name()
-      let test_db_name = db_name <> "_test"
+      create_database(test_db_config)
 
-      create_database(test_db_name)
-
-      let db = database.connect(test_db_name)
+      let db = database.connect(test_db_config)
 
       let assert Ok(_) = migrate(db)
       let _ = seed(db)
@@ -67,12 +56,12 @@ pub fn main() {
       Nil
     }
     ["reset"] -> {
-      let assert Ok(_) = reset(db_name)
+      let assert Ok(_) = reset(db_config)
 
       Nil
     }
     ["test.reset"] -> {
-      let assert Ok(_) = reset(test_db_name)
+      let assert Ok(_) = reset(test_db_config)
 
       Nil
     }
@@ -88,10 +77,70 @@ pub fn main() {
 @external(erlang, "timer", "sleep")
 fn sleep(time_ms: Int) -> Nil
 
-fn create_database(db_name: String) {
+pub fn initialize_db() {
+  let database_url = config.database_url()
+
+  let assert Ok(db_config) = pog.url_config(database_url)
+
+  case db_exists(db_config) {
+    True -> {
+      logger.debug("Database '" <> db_config.database <> "' exists.")
+
+      Nil
+    }
+    False -> {
+      logger.info(
+        "Database '"
+        <> db_config.database
+        <> "' does not exist. Running database initialization...",
+      )
+      setup(db_config)
+    }
+  }
+}
+
+fn db_exists(db_config: pog.Config) -> Bool {
+  let db_name = db_config.database
+
+  logger.debug("Checking if database '" <> db_name <> "' exists...")
+
+  let conn = pog.connect(pog.Config(..db_config, database: "postgres"))
+
+  let returned =
+    "SELECT 1 FROM pg_database WHERE datname::text = $1;"
+    |> pog.query()
+    |> pog.parameter(pog.text(db_name))
+    |> pog.returning(decode.at([0], decode.int))
+    |> pog.execute(conn)
+    |> one()
+
+  pog.disconnect(conn)
+
+  case returned {
+    Ok(_) -> True
+    Error(_) -> False
+  }
+}
+
+fn setup(db_config) {
+  create_database(db_config)
+
+  let db = database.connect(db_config)
+
+  let assert Ok(_) = migrate(db)
+  let _ = seed(db)
+
+  database.disconnect(db)
+
+  Nil
+}
+
+fn create_database(db_config: pog.Config) {
+  let db_name = db_config.database
+
   logger.info("Creating database '" <> db_name <> "'...")
 
-  let conn = database.connect("postgres")
+  let conn = pog.connect(pog.Config(..db_config, database: "postgres"))
 
   let sql = "CREATE DATABASE " <> db_name <> ";"
   let assert Ok(_) =
@@ -99,15 +148,17 @@ fn create_database(db_name: String) {
     |> pog.returning(decode.dynamic)
     |> pog.execute(conn)
 
-  database.disconnect(conn)
+  pog.disconnect(conn)
 
   logger.info("Database created.")
 }
 
-fn drop_database(db_name: String) {
+fn drop_database(db_config: pog.Config) {
+  let db_name = db_config.database
+
   logger.info("Dropping database '" <> db_name <> "'...")
 
-  let conn = database.connect("postgres")
+  let conn = pog.connect(pog.Config(..db_config, database: "postgres"))
 
   let sql = "DROP DATABASE IF EXISTS " <> db_name <> ";"
   let assert Ok(_) =
@@ -115,16 +166,16 @@ fn drop_database(db_name: String) {
     |> pog.returning(decode.dynamic)
     |> pog.execute(conn)
 
-  database.disconnect(conn)
+  pog.disconnect(conn)
 
   logger.info("Database dropped.")
 }
 
-fn reset(db_name: String) {
-  drop_database(db_name)
-  create_database(db_name)
+fn reset(db_config: pog.Config) {
+  drop_database(db_config)
+  create_database(db_config)
 
-  let db = database.connect(db_name)
+  let db = database.connect(db_config)
 
   use _ <- result.try(migrate(db))
 

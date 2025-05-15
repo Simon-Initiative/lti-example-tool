@@ -1,4 +1,17 @@
 services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 8080:8080
+    environment:
+      ENV: prod
+      SECRET_KEY_BASE: secret
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/lti_example_tool
+    depends_on:
+      - postgres
+
   postgres:
     image: postgres
     ports:

@@ -51,7 +51,7 @@ Interoperability) specification.
    ```
 8. Open the application in your browser:
    ```sh
-   open http://localhost:3000
+   open http://localhost:8080
    ```
 
 ### Useful Commands

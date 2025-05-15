@@ -16,6 +16,7 @@ pub fn main() {
     router.handle_request(_, ctx)
     |> wisp_mist.handler(ctx.secret_key_base)
     |> mist.new
+    |> mist.bind("0.0.0.0")
     |> mist.port(ctx.port)
     |> mist.start_http
 

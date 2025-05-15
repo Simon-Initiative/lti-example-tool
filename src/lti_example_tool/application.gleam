@@ -3,6 +3,7 @@ import lti/providers/httpc_provider
 import lti_example_tool/app_context.{type AppContext, AppContext}
 import lti_example_tool/config
 import lti_example_tool/database
+import lti_example_tool/database/migrate_and_seed
 import lti_example_tool/db_provider
 import lti_example_tool/env.{Dev}
 import lti_example_tool/utils/devtools
@@ -14,9 +15,12 @@ pub fn setup() -> AppContext {
   let static_directory = static_directory()
   let secret_key_base = config.secret_key_base(env)
 
-  let db_name = config.db_name()
+  migrate_and_seed.initialize_db()
 
-  let db = database.connect(db_name)
+  let db =
+    config.database_url()
+    |> database.config_from_url()
+    |> database.connect()
 
   let assert Ok(lti_data_provider) = db_provider.data_provider(db)
 

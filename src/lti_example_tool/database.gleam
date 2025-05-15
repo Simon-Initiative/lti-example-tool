@@ -2,7 +2,6 @@ import birl.{type Time}
 import gleam/dynamic/decode
 import gleam/int
 import gleam/list
-import gleam/option.{Some}
 import gleam/result
 import gleam/string
 import lti_example_tool/utils/logger
@@ -11,17 +10,8 @@ import pog.{type Connection}
 pub type Database =
   Connection
 
-pub fn connect(db_name: String) -> Database {
-  let db =
-    pog.connect(
-      pog.Config(
-        ..pog.default_config(),
-        host: "localhost",
-        database: db_name,
-        user: "postgres",
-        password: Some("postgres"),
-      ),
-    )
+pub fn connect(config: pog.Config) -> Database {
+  let db = pog.connect(config)
 
   // verify connection was successful
   case
@@ -40,6 +30,12 @@ pub fn connect(db_name: String) -> Database {
 
 pub fn disconnect(db: Connection) {
   pog.disconnect(db)
+}
+
+pub fn config_from_url(url: String) -> pog.Config {
+  let assert Ok(db_config) = pog.url_config(url)
+
+  db_config
 }
 
 pub type Record(pk, a) {

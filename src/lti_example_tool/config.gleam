@@ -22,7 +22,7 @@ pub fn env() -> Env {
 pub fn port() -> Int {
   envoy.get("PORT")
   |> result.then(int.parse)
-  |> result.unwrap(3000)
+  |> result.unwrap(8080)
 }
 
 pub fn secret_key_base(env: Env) -> String {
@@ -45,5 +45,12 @@ pub fn db_name() -> String {
   case envoy.get("DB_NAME") {
     Ok(db_name) -> db_name
     Error(_) -> "lti_example_tool"
+  }
+}
+
+pub fn database_url() -> String {
+  case envoy.get("DATABASE_URL") {
+    Ok(url) -> url
+    Error(_) -> "postgresql://postgres:postgres@localhost:5432/lti_example_tool"
   }
 }
