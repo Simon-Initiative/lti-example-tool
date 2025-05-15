@@ -10,20 +10,6 @@ import lti/services/ags/line_item.{LineItem}
 import lti/services/ags/score.{Score}
 
 pub fn post_score_test() {
-  let expect_http_post = fn(req: Request(String)) {
-    req.path
-    |> should.equal("/lineitem/123/scores")
-
-    req.method
-    |> should.equal(http.Post)
-
-    response.new(200)
-    |> response.set_body("{}")
-    |> Ok
-  }
-
-  let http_provider = http_mock_provider.http_provider(expect_http_post)
-
   let score =
     Score(
       score_given: 1.0,
@@ -50,6 +36,20 @@ pub fn post_score_test() {
       expires_in: 3600,
       scope: "some scopes",
     )
+
+  let expect_http_post = fn(req: Request(String)) {
+    req.path
+    |> should.equal("/context/2923/lineitems/1/scores")
+
+    req.method
+    |> should.equal(http.Post)
+
+    response.new(200)
+    |> response.set_body("{}")
+    |> Ok
+  }
+
+  let http_provider = http_mock_provider.http_provider(expect_http_post)
 
   ags.post_score(http_provider, score, line_item, access_token)
   |> should.be_ok()
