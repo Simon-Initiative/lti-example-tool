@@ -14,8 +14,6 @@ import lti/nonce.{type Nonce, Nonce}
 import lti/providers/data_provider.{type DataProvider, DataProvider}
 import lti/providers/memory_provider/tables.{type Table}
 import lti/registration.{type Registration}
-import lti_example_tool/utils/common.{try_with}
-import lti_example_tool/utils/logger
 
 const call_timeout = 5000
 
@@ -107,19 +105,19 @@ fn handle_message(message: Message, state: State) -> actor.Next(Message, State) 
     }
 
     CreateNonce(reply_with) -> {
-      use nonce <- try_with(uuid.generate_v4(), or_else: fn(e) {
-        logger.error_meta("Failed to generate nonce", e)
+      let nonce_result = {
+        use nonce <- result.try(uuid.generate_v4() |> result.replace_error(Nil))
 
-        actor.send(reply_with, Error(Nil))
+        Ok(Nonce(nonce, birl.now() |> birl.add(duration.minutes(5))))
+      }
 
-        actor.continue(state)
-      })
+      actor.send(reply_with, nonce_result)
 
-      let nonce = Nonce(nonce, birl.now() |> birl.add(duration.minutes(5)))
-
-      actor.send(reply_with, Ok(nonce))
-
-      actor.continue(State(..state, nonces: [nonce, ..state.nonces]))
+      case nonce_result {
+        Ok(nonce) ->
+          actor.continue(State(..state, nonces: [nonce, ..state.nonces]))
+        Error(_) -> actor.continue(state)
+      }
     }
 
     ValidateNonce(value, reply_with) -> {
@@ -197,27 +195,22 @@ fn handle_message(message: Message, state: State) -> actor.Next(Message, State) 
     }
 
     GetDeployment(issuer, client_id, deployment_id, reply_with) -> {
-      use #(registration_id, _registration) <- try_with(
-        tables.get_by(state.registrations, fn(registration) {
-          registration.issuer == issuer && registration.client_id == client_id
-        }),
-        or_else: fn(e) {
-          logger.error_meta("Failed to get registration", e)
+      let deployment_record_result = {
+        use #(registration_id, _registration) <- result.try(
+          tables.get_by(state.registrations, fn(registration) {
+            registration.issuer == issuer && registration.client_id == client_id
+          })
+          |> result.replace_error("Registration not found"),
+        )
 
-          actor.send(reply_with, Error("Registration not found"))
-
-          actor.continue(state)
-        },
-      )
-
-      let record =
         tables.get_by(state.deployments, fn(deployment) {
           deployment.registration_id == registration_id
           && deployment.deployment_id == deployment_id
         })
         |> result.replace_error("Deployment not found")
+      }
 
-      actor.send(reply_with, record)
+      actor.send(reply_with, deployment_record_result)
 
       actor.continue(state)
     }

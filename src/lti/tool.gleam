@@ -16,7 +16,6 @@ import ids/uuid
 import lti/jose.{type Claims, JoseJws, JoseJwt}
 import lti/providers/data_provider.{type DataProvider}
 import lti/registration.{type Registration}
-import lti_example_tool/utils/common.{try_with}
 import lti_example_tool/utils/logger
 
 const deployment_id_claim = "https://purl.imsglobal.org/spec/lti/claim/deployment_id"
@@ -33,9 +32,10 @@ pub fn oidc_login(
   params: Dict(String, String),
 ) -> Result(#(String, String), String) {
   use _params <- result.try(validate_issuer_exists(params))
-  use target_link_uri <- try_with(dict.get(params, "target_link_uri"), fn(_) {
-    Error("Missing target_link_uri")
-  })
+  use target_link_uri <- result.try(
+    dict.get(params, "target_link_uri")
+    |> result.replace_error("Missing target_link_uri"),
+  )
   use login_hint <- result.try(validate_login_hint_exists(params))
   use registration <- result.try(validate_registration(provider, params))
   use client_id <- result.try(validate_client_id_exists(params))
