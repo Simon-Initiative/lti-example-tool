@@ -1,18 +1,10 @@
-import lustre/attribute.{
-  charset, class, content, crossorigin, href, lang, name, referrerpolicy, rel,
-}
-import lustre/element.{type Element}
-import lustre/element/html.{
-  body, div, h1, head, html, link, meta, p, text, title,
-}
+import nakai/attr.{charset, class, content, crossorigin, href, lang, name, rel}
+import nakai/html.{type Node, div, h1_text, link, meta, p_text, title}
 
-pub fn page(
-  title page_title: String,
-  content page_content: List(Element(a)),
-) -> Element(a) {
-  html([lang("en")], [
-    head([], [
-      title([], page_title),
+pub fn page(title page_title: String, content page_content: List(Node)) -> Node {
+  html.Html([lang("en")], [
+    html.Head([
+      title(page_title),
       meta([charset("utf-8")]),
       meta([name("viewport"), content("width=device-width, initial-scale=1")]),
       meta([name("description"), content("LTI Example Tool")]),
@@ -23,10 +15,10 @@ pub fn page(
           "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/all.min.css",
         ),
         crossorigin("anonymous"),
-        referrerpolicy("no-referrer"),
+        attr.Attr("referrerpolicy", "no-referrer"),
       ]),
     ]),
-    body(
+    html.Body(
       [
         class(
           "bg-primary dark:bg-gray-900 dark:text-white flex flex-col h-screen",
@@ -35,9 +27,10 @@ pub fn page(
       [
         div([class("flex-1 flex flex-row")], [
           div([class("flex-1 my-6 px-3")], [
-            h1([class("max-w-sm mx-auto text-2xl text-center mb-4")], [
-              text(page_title),
-            ]),
+            h1_text(
+              [class("max-w-sm mx-auto text-2xl text-center mb-4")],
+              page_title,
+            ),
             ..page_content
           ]),
         ]),
@@ -48,8 +41,6 @@ pub fn page(
 
 pub fn error_page(error_message: String) {
   page("An Error Occurred", [
-    div([class("text-center")], [
-      p([class("text-red-500")], [text(error_message)]),
-    ]),
+    div([class("text-center")], [p_text([class("text-red-500")], error_message)]),
   ])
 }

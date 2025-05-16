@@ -1,8 +1,7 @@
-import lustre/attribute.{type Attribute, class}
-import lustre/element.{type Element}
-import lustre/element/html.{div}
+import nakai/attr.{type Attr, class}
+import nakai/html.{type Node, div}
 
-pub fn card(attrs: List(Attribute(msg)), children: List(Element(msg))) {
+pub fn card(attrs: List(Attr), children: List(Node)) {
   div(
     [
       class(
@@ -46,18 +45,10 @@ fn variant_class(variant: Variant) {
   }
 }
 
-pub fn button(
-  variant: Variant,
-  attrs: List(Attribute(msg)),
-  children: List(Element(msg)),
-) {
+pub fn button(variant: Variant, attrs: List(Attr), children: List(Node)) {
   html.button([class(variant_class(variant)), ..attrs], children)
 }
 
-pub fn link(
-  variant: Variant,
-  attrs: List(Attribute(msg)),
-  children: List(Element(msg)),
-) {
+pub fn link(variant: Variant, attrs: List(Attr), children: List(Node)) {
   html.a([class(variant_class(variant)), ..attrs], children)
 }

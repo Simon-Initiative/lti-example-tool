@@ -10,15 +10,14 @@ import lti_example_tool/html/components.{DangerLink, Link, Primary, Secondary}
 import lti_example_tool/html/components/forms.{Text}
 import lti_example_tool/html/components/page.{page}
 import lti_example_tool/html/components/tables.{Column}
-import lustre/attribute.{action, class, href, method, type_}
-import lustre/element.{type Element}
-import lustre/element/html.{code, div, form, h2, p, pre, text}
+import nakai/attr.{action, class, href, method, type_}
+import nakai/html.{type Node, code, div, form, h2, p, pre}
 
-pub fn index(registrations: List(Record(Int, Registration))) -> Element(a) {
+pub fn index(registrations: List(Record(Int, Registration))) -> Node {
   page("All Registrations", [
     div([class("flex flex-row justify-end mb-4")], [
       components.link(Primary, [href("/registrations/new")], [
-        text("Register Platform"),
+        html.Text("Register Platform"),
       ]),
     ]),
     tables.table(
@@ -26,19 +25,19 @@ pub fn index(registrations: List(Record(Int, Registration))) -> Element(a) {
       [
         Column("ID", fn(record: Record(Int, Registration)) {
           let Record(id, ..) = record
-          text(int.to_string(id))
+          html.Text(int.to_string(id))
         }),
         Column("Name", fn(record: Record(Int, Registration)) {
           let Record(data: registration, ..) = record
-          text(registration.name)
+          html.Text(registration.name)
         }),
         Column("Issuer", fn(record: Record(Int, Registration)) {
           let Record(data: registration, ..) = record
-          text(registration.issuer)
+          html.Text(registration.issuer)
         }),
         Column("Client ID", fn(record: Record(Int, Registration)) {
           let Record(data: registration, ..) = record
-          text(registration.client_id)
+          html.Text(registration.client_id)
         }),
         Column("Actions", fn(record: Record(Int, Registration)) {
           let Record(id, ..) = record
@@ -46,7 +45,7 @@ pub fn index(registrations: List(Record(Int, Registration))) -> Element(a) {
             components.link(
               Link,
               [href("/registrations/" <> int.to_string(id))],
-              [text("View")],
+              [html.Text("View")],
             ),
           ])
         }),
@@ -56,15 +55,17 @@ pub fn index(registrations: List(Record(Int, Registration))) -> Element(a) {
   ])
 }
 
-pub fn show(registration_id: String, registration: Registration) -> Element(a) {
+pub fn show(registration_id: String, registration: Registration) -> Node {
   page("Platform Registration Details", [
     div([class("flex flex-col")], [
-      div([class("text-2xl font-bold")], [text(registration.name)]),
-      div([class("text-gray-500")], [text(registration.issuer)]),
-      div([class("text-gray-500")], [text(registration.client_id)]),
-      div([class("text-gray-500")], [text(registration.auth_endpoint)]),
-      div([class("text-gray-500")], [text(registration.access_token_endpoint)]),
-      div([class("text-gray-500")], [text(registration.keyset_url)]),
+      div([class("text-2xl font-bold")], [html.Text(registration.name)]),
+      div([class("text-gray-500")], [html.Text(registration.issuer)]),
+      div([class("text-gray-500")], [html.Text(registration.client_id)]),
+      div([class("text-gray-500")], [html.Text(registration.auth_endpoint)]),
+      div([class("text-gray-500")], [
+        html.Text(registration.access_token_endpoint),
+      ]),
+      div([class("text-gray-500")], [html.Text(registration.keyset_url)]),
       div([], [
         form(
           [
@@ -74,7 +75,7 @@ pub fn show(registration_id: String, registration: Registration) -> Element(a) {
           [
             div([class("flex flex-row")], [
               components.button(Secondary, [class("my-8"), type_("submit")], [
-                text("Request Access Token"),
+                html.Text("Request Access Token"),
               ]),
             ]),
           ],
@@ -83,7 +84,7 @@ pub fn show(registration_id: String, registration: Registration) -> Element(a) {
     ]),
     div([class("flex flex-row")], [
       components.link(Link, [href("/registrations")], [
-        text("Back to Registrations"),
+        html.Text("Back to Registrations"),
       ]),
       form(
         [
@@ -93,7 +94,7 @@ pub fn show(registration_id: String, registration: Registration) -> Element(a) {
         [
           div([class("flex flex-row")], [
             components.button(DangerLink, [class("ml-2"), type_("submit")], [
-              text("Delete"),
+              html.Text("Delete"),
             ]),
           ]),
         ],
@@ -120,12 +121,12 @@ pub fn new() {
           forms.labeled_input(Text, "Keyset URL", "keyset_url", None),
           forms.labeled_input(Text, "Deployment ID", "deployment_id", None),
           components.button(Primary, [class("my-8"), type_("submit")], [
-            text("Register"),
+            html.Text("Register"),
           ]),
           components.link(
             Secondary,
             [class("my-2 text-center"), href("/registrations")],
-            [text("Cancel")],
+            [html.Text("Cancel")],
           ),
         ]),
       ]),
@@ -148,16 +149,16 @@ pub fn access_token(
   page("Access Token", [
     div([class("flex flex-col items-center justify-center w-full")], [
       div([class("w-full max-w-4xl p-4")], [
-        h2([class("my-4 text-lg font-bold")], [text("Issuer")]),
-        p([class("")], [text(registration.issuer)]),
-        h2([class("my-4 text-lg font-bold")], [text("Token")]),
+        h2([class("my-4 text-lg font-bold")], [html.Text("Issuer")]),
+        p([class("")], [html.Text(registration.issuer)]),
+        h2([class("my-4 text-lg font-bold")], [html.Text("Token")]),
         pre([class("p-6 bg-gray-100 rounded-lg break-words overflow-auto")], [
-          code([class("text-sm break-words")], [text(token)]),
+          code([class("text-sm break-words")], [html.Text(token)]),
         ]),
-        h2([class("my-4 text-lg font-bold mt-4")], [text("Scopes")]),
+        h2([class("my-4 text-lg font-bold mt-4")], [html.Text("Scopes")]),
         pre([class("p-6 bg-gray-100 rounded-lg break-words overflow-auto")], [
           code([class("text-sm break-words")], [
-            text(string.join(
+            html.Text(string.join(
               [
                 ags.lineitem_scope_url,
                 ags.result_readonly_scope_url,
@@ -168,18 +169,20 @@ pub fn access_token(
             )),
           ]),
         ]),
-        h2([class("my-4 text-lg font-bold")], [text("Token Type")]),
+        h2([class("my-4 text-lg font-bold")], [html.Text("Token Type")]),
         pre([class("p-6 bg-gray-100 rounded-lg break-words overflow-auto")], [
-          code([class("text-sm break-words")], [text(token_type)]),
+          code([class("text-sm break-words")], [html.Text(token_type)]),
         ]),
-        h2([class("my-4 text-lg font-bold")], [text("Expires In")]),
+        h2([class("my-4 text-lg font-bold")], [html.Text("Expires In")]),
         pre([class("p-6 bg-gray-100 rounded-lg break-words overflow-auto")], [
-          code([class("text-sm break-words")], [text(int.to_string(expires_in))]),
+          code([class("text-sm break-words")], [
+            html.Text(int.to_string(expires_in)),
+          ]),
         ]),
       ]),
       div([class("flex flex-row space-x-4")], [
         components.link(Link, [href("/registrations/" <> registration_id)], [
-          text("Back to Registration"),
+          html.Text("Back to Registration"),
         ]),
       ]),
     ]),

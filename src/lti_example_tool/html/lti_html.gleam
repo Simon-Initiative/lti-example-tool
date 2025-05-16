@@ -14,14 +14,10 @@ import lti_example_tool/html/components/forms.{Number, Text}
 import lti_example_tool/html/components/page.{page}
 import lti_example_tool/html/components/tables.{Column}
 import lti_example_tool/registrations
-import lustre/attribute.{action, class, method, name, src, type_, value}
-import lustre/element.{type Element}
-import lustre/element/html.{div, form, h2, i, img, input, section, span, text}
+import nakai/attr.{action, class, method, name, src, type_, value}
+import nakai/html.{type Node, div, form, h2, i, img, input, section, span}
 
-pub fn launch_details(
-  claims: Dict(String, Dynamic),
-  app: AppContext,
-) -> Element(a) {
+pub fn launch_details(claims: Dict(String, Dynamic), app: AppContext) -> Node {
   page("Launch Successful", [
     div([class("container mx-auto flex flex-col gap-12")], [
       claims_section(claims),
@@ -31,28 +27,28 @@ pub fn launch_details(
   ])
 }
 
-fn heading(content: String) -> Element(a) {
-  h2([class("text-xl font-bold mb-2")], [text(content)])
+fn heading(content: String) -> Node {
+  h2([class("text-xl font-bold mb-2")], [html.Text(content)])
 }
 
-fn claims_section(claims: Dict(String, Dynamic)) -> Element(a) {
+fn claims_section(claims: Dict(String, Dynamic)) -> Node {
   section([], [
     heading("ID Token"),
     div([], [
       div([class("my-2")], [
         i([class("fa-solid fa-lock text-green-500 mr-2")], []),
-        text("Token signature verified"),
+        html.Text("Token signature verified"),
       ]),
       tables.table(
         [],
         [
           Column("Claim", fn(record: #(String, Dynamic)) {
             let #(claim, _value) = record
-            span([class("font-semibold")], [text(claim)])
+            span([class("font-semibold")], [html.Text(claim)])
           }),
           Column("Value", fn(record: #(String, Dynamic)) {
             let #(_key, value) = record
-            text(string.inspect(value))
+            html.Text(string.inspect(value))
           }),
         ],
         dict.to_list(claims),
@@ -66,7 +62,7 @@ fn decode_string(d: Dynamic) -> Result(String, String) {
   |> result.replace_error("Invalid string: " <> string.inspect(d))
 }
 
-fn ags_section(app: AppContext, claims: Dict(String, Dynamic)) -> Element(a) {
+fn ags_section(app: AppContext, claims: Dict(String, Dynamic)) -> Node {
   let form = {
     use user_id <- result.try(
       dict.get(claims, "sub")
@@ -115,7 +111,7 @@ fn ags_section(app: AppContext, claims: Dict(String, Dynamic)) -> Element(a) {
 
     form([method("post"), action("/score")], [
       div([class("my-2 text-gray-500")], [
-        span([class("my-2 font-mono")], [text(line_items_service_url)]),
+        span([class("my-2 font-mono")], [html.Text(line_items_service_url)]),
       ]),
       forms.labeled_input(
         Text,
@@ -145,7 +141,7 @@ fn ags_section(app: AppContext, claims: Dict(String, Dynamic)) -> Element(a) {
         value(line_items_service_url),
       ]),
       components.button(Primary, [class("my-8"), type_("submit")], [
-        text("Send Score"),
+        html.Text("Send Score"),
       ]),
     ])
     |> Ok
@@ -158,7 +154,7 @@ fn ags_section(app: AppContext, claims: Dict(String, Dynamic)) -> Element(a) {
         div([], [
           div([class("my-2")], [
             i([class("fa-solid fa-circle-check text-green-500 mr-2")], []),
-            text("AGS Service is available"),
+            html.Text("AGS Service is available"),
           ]),
           form,
         ])
@@ -166,18 +162,15 @@ fn ags_section(app: AppContext, claims: Dict(String, Dynamic)) -> Element(a) {
         div([], [
           div([class("my-2")], [
             i([class("fa-solid fa-circle-xmark text-gray-500 mr-2")], []),
-            text("AGS Service is not available"),
+            html.Text("AGS Service is not available"),
           ]),
-          div([class("text-red-500")], [text(reason)]),
+          div([class("text-red-500")], [html.Text(reason)]),
         ])
     },
   ])
 }
 
-pub fn nrps_section(
-  app: AppContext,
-  claims: Dict(String, Dynamic),
-) -> Element(a) {
+pub fn nrps_section(app: AppContext, claims: Dict(String, Dynamic)) -> Node {
   let form = {
     use context_memberships_url <- result.try(nrps.get_membership_service_url(
       claims,
@@ -202,7 +195,7 @@ pub fn nrps_section(
 
     form([method("post"), action("/memberships")], [
       div([class("my-2 text-gray-500")], [
-        span([class("my-2 font-mono")], [text(context_memberships_url)]),
+        span([class("my-2 font-mono")], [html.Text(context_memberships_url)]),
       ]),
       input([
         type_("hidden"),
@@ -215,7 +208,7 @@ pub fn nrps_section(
         value(int.to_string(registration.id)),
       ]),
       components.button(Primary, [class("my-8"), type_("submit")], [
-        text("Fetch Memberships"),
+        html.Text("Fetch Memberships"),
       ]),
     ])
     |> Ok
@@ -228,7 +221,7 @@ pub fn nrps_section(
         div([], [
           div([class("my-2")], [
             i([class("fa-solid fa-circle-check text-green-500 mr-2")], []),
-            text("NRPS Service is available"),
+            html.Text("NRPS Service is available"),
           ]),
           form,
         ])
@@ -236,25 +229,25 @@ pub fn nrps_section(
         div([], [
           div([class("my-2")], [
             i([class("fa-solid fa-circle-xmark text-gray-500 mr-2")], []),
-            text("NRPS Service is not available"),
+            html.Text("NRPS Service is not available"),
           ]),
-          div([class("text-red-500")], [text(reason)]),
+          div([class("text-red-500")], [html.Text(reason)]),
         ])
     },
   ])
 }
 
-pub fn score_sent() -> Element(a) {
+pub fn score_sent() -> Node {
   page("Success", [
     div([class("container mx-auto")], [
       div([class("text-green-500 text-center")], [
-        text("Score update was successfully sent!"),
+        html.Text("Score update was successfully sent!"),
       ]),
     ]),
   ])
 }
 
-pub fn memberships(memberships: List(Membership)) -> Element(a) {
+pub fn memberships(memberships: List(Membership)) -> Node {
   page("Memberships", [
     div([class("container mx-auto")], [
       div([class("overflow-x-auto")], [
@@ -269,13 +262,15 @@ pub fn memberships(memberships: List(Membership)) -> Element(a) {
                 ),
               ])
             }),
-            Column("Name", fn(m: Membership) { text(m.name) }),
+            Column("Name", fn(m: Membership) { html.Text(m.name) }),
             Column("User ID", fn(m: Membership) {
-              span([class("font-mono")], [text(m.user_id)])
+              span([class("font-mono")], [html.Text(m.user_id)])
             }),
-            Column("Status", fn(m: Membership) { text(m.status) }),
-            Column("Roles", fn(m: Membership) { text(string.inspect(m.roles)) }),
-            Column("Email", fn(m: Membership) { text(m.email) }),
+            Column("Status", fn(m: Membership) { html.Text(m.status) }),
+            Column("Roles", fn(m: Membership) {
+              html.Text(string.inspect(m.roles))
+            }),
+            Column("Email", fn(m: Membership) { html.Text(m.email) }),
           ],
           memberships,
         ),

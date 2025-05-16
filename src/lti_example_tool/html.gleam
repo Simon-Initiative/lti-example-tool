@@ -1,8 +1,8 @@
-import lustre/element
-import lustre/vdom/vnode
+import nakai
+import nakai/html.{type Node}
 import wisp
 
-pub fn render_html(el: vnode.Element(a)) {
+pub fn render_html(el: Node) {
   wisp.ok()
-  |> wisp.html_body(element.to_string_tree(el))
+  |> wisp.html_body(nakai.to_string_tree(el))
 }

@@ -1,9 +1,7 @@
 import gleam/list
 import gleam/option.{type Option}
-import lustre/attribute.{class}
-import lustre/element/html
-import lustre/vdom/vattr
-import lustre/vdom/vnode
+import nakai/attr.{type Attr, class, type_, value}
+import nakai/html.{type Node}
 
 pub type InputType {
   Text
@@ -17,22 +15,22 @@ pub fn labeled_input(
   label: String,
   name: String,
   default: Option(String),
-) -> vnode.Element(a) {
+) -> Node {
   html.label(
     [class("block mb-2 text-sm font-medium text-gray-900 dark:text-white")],
     [
-      html.text(label),
+      html.Text(label),
       html.input(
         [
           class(
             "bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500",
           ),
           input_type_attr(input_type),
-          attribute.name(name),
+          attr.name(name),
         ]
         |> list.append(
           default
-          |> option.map(fn(v) { [attribute.value(v)] })
+          |> option.map(fn(v) { [value(v)] })
           |> option.unwrap([]),
         ),
       ),
@@ -40,12 +38,12 @@ pub fn labeled_input(
   )
 }
 
-fn input_type_attr(input_type: InputType) -> vattr.Attribute(a) {
+fn input_type_attr(input_type: InputType) -> Attr {
   case input_type {
     Text -> "text"
     Email -> "email"
     Password -> "password"
     Number -> "number"
   }
-  |> attribute.type_()
+  |> type_()
 }
