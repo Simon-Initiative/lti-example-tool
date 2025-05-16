@@ -20,12 +20,7 @@ import lti/utils.{json_decoder}
 import lti_example_tool/utils/logger
 
 pub type AccessToken {
-  AccessToken(
-    access_token: String,
-    token_type: String,
-    expires_in: Int,
-    scope: String,
-  )
+  AccessToken(token: String, token_type: String, expires_in: Int, scope: String)
 }
 
 /// Requests an OAuth2 access token. Returns Ok(AccessToken) on success, Error(_) otherwise.
@@ -114,13 +109,13 @@ fn request_token(
 
 fn decode_access_token(body: String) -> Result(AccessToken, String) {
   let access_token_decoder = {
-    use access_token <- decode.field("access_token", decode.string)
+    use token <- decode.field("access_token", decode.string)
     use token_type <- decode.field("token_type", decode.string)
     use expires_in <- decode.field("expires_in", decode.int)
     use scope <- decode.field("scope", decode.string)
 
     decode.success(AccessToken(
-      access_token: access_token,
+      token: token,
       token_type: token_type,
       expires_in: expires_in,
       scope: scope,
@@ -185,8 +180,8 @@ pub fn set_authorization_header(
   req: Request(String),
   access_token: AccessToken,
 ) -> Request(String) {
-  let AccessToken(access_token: access_token, ..) = access_token
+  let AccessToken(token: token, ..) = access_token
 
   req
-  |> request.set_header("Authorization", "Bearer " <> access_token)
+  |> request.set_header("Authorization", "Bearer " <> token)
 }

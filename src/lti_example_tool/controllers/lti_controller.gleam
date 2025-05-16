@@ -23,10 +23,11 @@ import lti/tool
 import lti_example_tool/app_context.{type AppContext}
 import lti_example_tool/cookies.{require_cookie, set_cookie}
 import lti_example_tool/database.{type Record, Record}
-import lti_example_tool/html.{render_error_page, render_page} as _
+import lti_example_tool/html.{render_html} as _
 import lti_example_tool/html/components.{Primary}
-import lti_example_tool/html/forms.{Number, Text}
-import lti_example_tool/html/tables.{Column}
+import lti_example_tool/html/components/forms.{Number, Text}
+import lti_example_tool/html/components/page.{error_page, page}
+import lti_example_tool/html/components/tables.{Column}
 import lti_example_tool/jwks
 import lti_example_tool/registrations
 import lti_example_tool/utils/logger
@@ -52,7 +53,7 @@ pub fn oidc_login(req: Request, app: AppContext) -> Response {
 
       redirect(to: redirect_url)
     }
-    Error(error) -> render_error_page("OIDC login failed: " <> error)
+    Error(error) -> render_html(error_page("OIDC login failed: " <> error))
   }
 }
 
@@ -82,23 +83,25 @@ pub fn validate_launch(req: Request, app: AppContext) -> Response {
   use session_state <- require_cookie(req, "state", or_else: fn() {
     logger.error("Required 'state' cookie not found")
 
-    render_error_page("Required 'state' cookie not found")
+    render_html(error_page("Required 'state' cookie not found"))
   })
 
   case tool.validate_launch(app.providers.data, params, session_state) {
     Ok(claims) -> {
-      render_page("Launch Successful", [
-        div([class("container mx-auto flex flex-col gap-12")], [
-          claims_section(claims),
-          ags_section(app, claims),
-          nrps_section(app, claims),
+      render_html(
+        page("Launch Successful", [
+          div([class("container mx-auto flex flex-col gap-12")], [
+            claims_section(claims),
+            ags_section(app, claims),
+            nrps_section(app, claims),
+          ]),
         ]),
-      ])
+      )
     }
     Error(e) -> {
       logger.error_meta("Invalid launch", e)
 
-      render_error_page("Invalid launch: " <> string.inspect(e))
+      render_html(error_page("Invalid launch: " <> string.inspect(e)))
     }
   }
 }
@@ -351,18 +354,20 @@ pub fn send_score(req: Request, app: AppContext) -> Response {
 
   case result {
     Ok(_) -> {
-      render_page("Success", [
-        div([class("container mx-auto")], [
-          div([class("text-green-500 text-center")], [
-            text("Score update was successfully sent!"),
+      render_html(
+        page("Success", [
+          div([class("container mx-auto")], [
+            div([class("text-green-500 text-center")], [
+              text("Score update was successfully sent!"),
+            ]),
           ]),
         ]),
-      ])
+      )
     }
     Error(e) -> {
       logger.error_meta("Error sending score", e)
 
-      render_error_page("Error sending score: " <> string.inspect(e))
+      render_html(error_page("Error sending score: " <> string.inspect(e)))
     }
   }
 }
@@ -476,40 +481,44 @@ pub fn fetch_memberships(req: Request, app: AppContext) -> Response {
 
   case result {
     Ok(memberships) -> {
-      render_page("Memberships", [
-        div([class("container mx-auto")], [
-          div([class("overflow-x-auto")], [
-            tables.table(
-              [],
-              [
-                Column("", fn(m: Membership) {
-                  img([
-                    src(m.picture),
-                    class(
-                      "w-10 min-w-10 h-10 rounded-full object-cover border-2 border-gray-100",
-                    ),
-                  ])
-                }),
-                Column("Name", fn(m: Membership) { text(m.name) }),
-                Column("User ID", fn(m: Membership) {
-                  span([class("font-mono")], [text(m.user_id)])
-                }),
-                Column("Status", fn(m: Membership) { text(m.status) }),
-                Column("Roles", fn(m: Membership) {
-                  text(string.inspect(m.roles))
-                }),
-                Column("Email", fn(m: Membership) { text(m.email) }),
-              ],
-              memberships,
-            ),
+      render_html(
+        page("Memberships", [
+          div([class("container mx-auto")], [
+            div([class("overflow-x-auto")], [
+              tables.table(
+                [],
+                [
+                  Column("", fn(m: Membership) {
+                    img([
+                      src(m.picture),
+                      class(
+                        "w-10 min-w-10 h-10 rounded-full object-cover border-2 border-gray-100",
+                      ),
+                    ])
+                  }),
+                  Column("Name", fn(m: Membership) { text(m.name) }),
+                  Column("User ID", fn(m: Membership) {
+                    span([class("font-mono")], [text(m.user_id)])
+                  }),
+                  Column("Status", fn(m: Membership) { text(m.status) }),
+                  Column("Roles", fn(m: Membership) {
+                    text(string.inspect(m.roles))
+                  }),
+                  Column("Email", fn(m: Membership) { text(m.email) }),
+                ],
+                memberships,
+              ),
+            ]),
           ]),
         ]),
-      ])
+      )
     }
     Error(e) -> {
       logger.error_meta("Error fetching memberships", e)
 
-      render_error_page("Error fetching memberships: " <> string.inspect(e))
+      render_html(error_page(
+        "Error fetching memberships: " <> string.inspect(e),
+      ))
     }
   }
 }
@@ -542,7 +551,7 @@ pub fn jwks(_req: Request, app: AppContext) -> Response {
     Error(e) -> {
       logger.error_meta("Error fetching JWKS", e)
 
-      render_error_page("Error fetching JWKS: " <> string.inspect(e))
+      render_html(error_page("Error fetching JWKS: " <> string.inspect(e)))
     }
   }
 }

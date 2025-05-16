@@ -1,26 +1,21 @@
 import gleam/http.{Get, Post}
 import gleam/int
 import gleam/list
-import gleam/option.{None}
 import gleam/result
-import gleam/string
 import lti/deployment.{Deployment}
-import lti/registration.{type Registration, Registration}
-import lti/services/access_token.{AccessToken}
+import lti/registration.{Registration}
+import lti/services/access_token
 import lti/services/ags
 import lti/services/nrps
 import lti_example_tool/app_context.{type AppContext}
-import lti_example_tool/database.{type Record, Record}
+import lti_example_tool/database.{Record}
 import lti_example_tool/deployments
-import lti_example_tool/html.{render_error_page, render_page} as _
-import lti_example_tool/html/components.{DangerLink, Link, Primary, Secondary}
-import lti_example_tool/html/forms.{Text}
-import lti_example_tool/html/tables.{Column}
+import lti_example_tool/html.{render_html} as _
+import lti_example_tool/html/components/page.{error_page}
+import lti_example_tool/html/registrations_html
 import lti_example_tool/registrations
 import lti_example_tool/utils/common.{try_with} as _
 import lti_example_tool/utils/logger
-import lustre/attribute.{action, class, href, method, type_}
-import lustre/element/html.{code, div, form, h2, p, pre, text}
 import wisp.{type Request, type Response}
 
 pub fn resources(req: Request, app: AppContext) -> Response {
@@ -48,76 +43,27 @@ pub fn index(app: AppContext) -> Response {
     wisp.internal_server_error()
   })
 
-  render_page("All Registrations", [
-    div([class("flex flex-row justify-end mb-4")], [
-      components.link(Primary, [href("/registrations/new")], [
-        text("Register Platform"),
-      ]),
-    ]),
-    tables.table(
-      [],
-      [
-        Column("ID", fn(record: Record(Int, Registration)) {
-          let Record(id, ..) = record
-          text(int.to_string(id))
-        }),
-        Column("Name", fn(record: Record(Int, Registration)) {
-          let Record(data: registration, ..) = record
-          text(registration.name)
-        }),
-        Column("Issuer", fn(record: Record(Int, Registration)) {
-          let Record(data: registration, ..) = record
-          text(registration.issuer)
-        }),
-        Column("Client ID", fn(record: Record(Int, Registration)) {
-          let Record(data: registration, ..) = record
-          text(registration.client_id)
-        }),
-        Column("Actions", fn(record: Record(Int, Registration)) {
-          let Record(id, ..) = record
-          div([], [
-            components.link(
-              Link,
-              [href("/registrations/" <> int.to_string(id))],
-              [text("View")],
-            ),
-          ])
-        }),
-      ],
-      registrations,
-    ),
-  ])
+  render_html(registrations_html.index(registrations))
+}
+
+pub fn show(req: Request, app: AppContext, registration_id: String) -> Response {
+  use <- wisp.require_method(req, Get)
+
+  use id <- try_with(int.parse(registration_id), or_else: fn(_) {
+    wisp.log_error("Invalid registration ID")
+    wisp.bad_request()
+  })
+
+  use Record(data: registration, ..) <- try_with(
+    registrations.get(app.db, id),
+    or_else: fn(_) { wisp.not_found() },
+  )
+
+  render_html(registrations_html.show(registration_id, registration))
 }
 
 pub fn new() -> Response {
-  render_page("Register Platform", [
-    components.card([class("max-w-sm mx-auto")], [
-      form([method("post"), action("/registrations")], [
-        div([class("flex flex-col")], [
-          forms.labeled_input(Text, "Name", "name", None),
-          forms.labeled_input(Text, "Issuer", "issuer", None),
-          forms.labeled_input(Text, "Client ID", "client_id", None),
-          forms.labeled_input(Text, "Auth Endpoint", "auth_endpoint", None),
-          forms.labeled_input(
-            Text,
-            "Access Token Endpoint",
-            "access_token_endpoint",
-            None,
-          ),
-          forms.labeled_input(Text, "Keyset URL", "keyset_url", None),
-          forms.labeled_input(Text, "Deployment ID", "deployment_id", None),
-          components.button(Primary, [class("my-8"), type_("submit")], [
-            text("Register"),
-          ]),
-          components.link(
-            Secondary,
-            [class("my-2 text-center"), href("/registrations")],
-            [text("Cancel")],
-          ),
-        ]),
-      ]),
-    ]),
-  ])
+  render_html(registrations_html.new())
 }
 
 pub fn create(req: Request, app: AppContext) -> Response {
@@ -174,64 +120,6 @@ pub fn create(req: Request, app: AppContext) -> Response {
   }
 }
 
-pub fn show(req: Request, app: AppContext, id: String) -> Response {
-  use <- wisp.require_method(req, Get)
-
-  use id <- try_with(int.parse(id), or_else: fn(_) {
-    wisp.log_error("Invalid registration ID")
-    wisp.bad_request()
-  })
-
-  use Record(data: registration, ..) <- try_with(
-    registrations.get(app.db, id),
-    or_else: fn(_) { wisp.not_found() },
-  )
-
-  render_page("Platform Registration Details", [
-    div([class("flex flex-col")], [
-      div([class("text-2xl font-bold")], [text(registration.name)]),
-      div([class("text-gray-500")], [text(registration.issuer)]),
-      div([class("text-gray-500")], [text(registration.client_id)]),
-      div([class("text-gray-500")], [text(registration.auth_endpoint)]),
-      div([class("text-gray-500")], [text(registration.access_token_endpoint)]),
-      div([class("text-gray-500")], [text(registration.keyset_url)]),
-      div([], [
-        form(
-          [
-            method("post"),
-            action("/registrations/" <> int.to_string(id) <> "/access_token"),
-          ],
-          [
-            div([class("flex flex-row")], [
-              components.button(Secondary, [class("my-8"), type_("submit")], [
-                text("Request Access Token"),
-              ]),
-            ]),
-          ],
-        ),
-      ]),
-    ]),
-    div([class("flex flex-row")], [
-      components.link(Link, [href("/registrations")], [
-        text("Back to Registrations"),
-      ]),
-      form(
-        [
-          method("post"),
-          action("/registrations/" <> int.to_string(id) <> "/delete"),
-        ],
-        [
-          div([class("flex flex-row")], [
-            components.button(DangerLink, [class("ml-2"), type_("submit")], [
-              text("Delete"),
-            ]),
-          ]),
-        ],
-      ),
-    ]),
-  ])
-}
-
 pub fn delete(req: Request, app: AppContext, id: String) -> Response {
   use <- wisp.require_method(req, Post)
 
@@ -247,11 +135,15 @@ pub fn delete(req: Request, app: AppContext, id: String) -> Response {
   wisp.redirect("/registrations")
 }
 
-pub fn access_token(req: Request, app: AppContext, id: String) -> Response {
+pub fn access_token(
+  req: Request,
+  app: AppContext,
+  registration_id: String,
+) -> Response {
   use <- wisp.require_method(req, Post)
 
   use registration <- try_with(
-    int.parse(id)
+    int.parse(registration_id)
       |> result.then(fn(id) {
         registrations.get(app.db, id) |> result.replace_error(Nil)
       })
@@ -259,7 +151,7 @@ pub fn access_token(req: Request, app: AppContext, id: String) -> Response {
     or_else: fn(e) {
       logger.error_meta("Invalid registration ID", e)
 
-      render_error_page("Something went wrong")
+      render_html(error_page("Something went wrong"))
     },
   )
 
@@ -272,64 +164,15 @@ pub fn access_token(req: Request, app: AppContext, id: String) -> Response {
     ])
 
   case result {
-    Ok(AccessToken(
-      access_token: access_token,
-      token_type: token_type,
-      expires_in: expires_in,
-      ..,
-    )) -> {
-      render_page("Access Token", [
-        div([class("flex flex-col items-center justify-center w-full")], [
-          div([class("w-full max-w-4xl p-4")], [
-            h2([class("my-4 text-lg font-bold")], [text("Issuer")]),
-            p([class("")], [text(registration.issuer)]),
-            h2([class("my-4 text-lg font-bold")], [text("Token")]),
-            pre(
-              [class("p-6 bg-gray-100 rounded-lg break-words overflow-auto")],
-              [code([class("text-sm break-words")], [text(access_token)])],
-            ),
-            h2([class("my-4 text-lg font-bold mt-4")], [text("Scopes")]),
-            pre(
-              [class("p-6 bg-gray-100 rounded-lg break-words overflow-auto")],
-              [
-                code([class("text-sm break-words")], [
-                  text(string.join(
-                    [
-                      ags.lineitem_scope_url,
-                      ags.result_readonly_scope_url,
-                      ags.scores_scope_url,
-                      nrps.context_membership_readonly_claim_url,
-                    ],
-                    "\n",
-                  )),
-                ]),
-              ],
-            ),
-            h2([class("my-4 text-lg font-bold")], [text("Token Type")]),
-            pre(
-              [class("p-6 bg-gray-100 rounded-lg break-words overflow-auto")],
-              [code([class("text-sm break-words")], [text(token_type)])],
-            ),
-            h2([class("my-4 text-lg font-bold")], [text("Expires In")]),
-            pre(
-              [class("p-6 bg-gray-100 rounded-lg break-words overflow-auto")],
-              [
-                code([class("text-sm break-words")], [
-                  text(int.to_string(expires_in)),
-                ]),
-              ],
-            ),
-          ]),
-          div([class("flex flex-row space-x-4")], [
-            components.link(Link, [href("/registrations/" <> id)], [
-              text("Back to Registration"),
-            ]),
-          ]),
-        ]),
-      ])
+    Ok(access_token) -> {
+      render_html(registrations_html.access_token(
+        registration_id,
+        access_token,
+        registration,
+      ))
     }
     Error(error_msg) -> {
-      render_error_page(error_msg)
+      render_html(error_page(error_msg))
     }
   }
 }

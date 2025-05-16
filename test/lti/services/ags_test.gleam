@@ -31,7 +31,7 @@ pub fn post_score_test() {
 
   let access_token =
     AccessToken(
-      access_token: "SOME_ACCESS_TOKEN",
+      token: "SOME_ACCESS_TOKEN",
       token_type: "Bearer",
       expires_in: 3600,
       scope: "some scopes",
