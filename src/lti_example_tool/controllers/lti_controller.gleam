@@ -1,10 +1,9 @@
 import birl
+import formal/form
 import gleam/dict.{type Dict}
-import gleam/float
 import gleam/function
 import gleam/http
 import gleam/http/cookie
-import gleam/int
 import gleam/json
 import gleam/list
 import gleam/option.{Some}
@@ -90,119 +89,141 @@ pub fn validate_launch(req: Request, app: AppContext) -> Response {
   }
 }
 
-fn require_form_field(
-  formdata: wisp.FormData,
-  key: String,
-) -> Result(String, String) {
-  list.key_find(formdata.values, key)
-  |> result.replace_error("Missing " <> key)
-}
-
-fn parse_as_float(str: String) -> Result(Float, String) {
-  str
-  |> float.parse()
-  |> result.lazy_or(fn() {
-    int.parse(str)
-    |> result.map(int.to_float)
-  })
-  |> result.replace_error("Invalid number: " <> str)
+type SendScoreForm {
+  SendScoreForm(
+    line_item_id: String,
+    line_item_name: String,
+    score_given: Float,
+    score_maximum: Float,
+    comment: String,
+    user_id: String,
+    registration_id: Int,
+    line_items_service_url: String,
+  )
 }
 
 pub fn send_score(req: Request, app: AppContext) -> Response {
   use <- wisp.require_method(req, http.Post)
   use formdata <- wisp.require_form(req)
 
-  let result = {
-    use line_item_id <- result.try(require_form_field(formdata, "line_item_id"))
-    use line_item_name <- result.try(require_form_field(
-      formdata,
-      "line_item_name",
-    ))
+  let form =
+    form.decoding({
+      use line_item_id <- form.parameter
+      use line_item_name <- form.parameter
+      use score_given <- form.parameter
+      use score_maximum <- form.parameter
+      use comment <- form.parameter
+      use user_id <- form.parameter
+      use registration_id <- form.parameter
+      use line_items_service_url <- form.parameter
 
-    use score_given <- result.try(
-      require_form_field(formdata, "score_given")
-      |> result.then(parse_as_float)
-      |> result.replace_error("Invalid score given"),
-    )
-
-    use score_maximum <- result.try(
-      require_form_field(formdata, "score_maximum")
-      |> result.then(parse_as_float)
-      |> result.replace_error("Invalid score maximum"),
-    )
-
-    use comment <- result.try(require_form_field(formdata, "comment"))
-
-    use user_id <- result.try(require_form_field(formdata, "user_id"))
-
-    use registration <- result.try(
-      require_form_field(formdata, "registration_id")
-      |> result.then(fn(value) {
-        int.parse(value)
-        |> result.replace_error("Invalid registration_id")
-      })
-      |> result.then(fn(id) {
-        registrations.get(app.db, id)
-        |> result.replace_error("Error fetching registration")
-      })
-      |> result.map(fn(record) { record.data }),
-    )
-
-    use access_token <- result.try(
-      access_token.fetch_access_token(app.providers, registration, [
-        ags.lineitem_scope_url,
-        ags.result_readonly_scope_url,
-        ags.scores_scope_url,
-      ])
-      |> result.replace_error("Error fetching access token"),
-    )
-
-    let score =
-      Score(
-        score_given: score_given,
-        score_maximum: score_maximum,
-        timestamp: birl.now() |> birl.to_iso8601(),
-        user_id: user_id,
-        comment: comment,
-        activity_progress: "Completed",
-        grading_progress: "FullyGraded",
-      )
-
-    use line_items_service_url <- result.try(
-      list.key_find(formdata.values, "line_items_service_url")
-      |> result.replace_error("Missing line_items_service_url"),
-    )
-
-    case
-      ags.fetch_or_create_line_item(
-        app.providers.http,
-        line_items_service_url,
+      SendScoreForm(
         line_item_id,
-        fn() { 1.0 },
         line_item_name,
-        access_token,
+        score_given,
+        score_maximum,
+        comment,
+        user_id,
+        registration_id,
+        line_items_service_url,
       )
-    {
-      Ok(line_item) -> {
+    })
+    |> form.with_values(formdata.values)
+    |> form.field(
+      "line_item_id",
+      form.string |> form.and(form.must_not_be_empty),
+    )
+    |> form.field(
+      "line_item_name",
+      form.string |> form.and(form.must_not_be_empty),
+    )
+    |> form.field(
+      "score_given",
+      form.float |> form.and(form.must_be_greater_float_than(0.0)),
+    )
+    |> form.field(
+      "score_maximum",
+      form.float |> form.and(form.must_be_greater_float_than(0.0)),
+    )
+    |> form.field("comment", form.string)
+    |> form.field("user_id", form.string)
+    |> form.field("registration_id", form.int)
+    |> form.field("line_items_service_url", form.string)
+    |> form.finish()
+
+  case form {
+    Ok(SendScoreForm(
+      line_item_id,
+      line_item_name,
+      score_given,
+      score_maximum,
+      comment,
+      user_id,
+      registration_id,
+      line_items_service_url,
+    )) -> {
+      let result = {
+        use registration <- result.try(
+          registrations.get(app.db, registration_id)
+          |> result.replace_error("Error fetching registration")
+          |> result.map(fn(record) { record.data }),
+        )
+
+        use access_token <- result.try(
+          access_token.fetch_access_token(app.providers, registration, [
+            ags.lineitem_scope_url,
+            ags.result_readonly_scope_url,
+            ags.scores_scope_url,
+          ])
+          |> result.replace_error("Error fetching access token"),
+        )
+
+        let score =
+          Score(
+            score_given: score_given,
+            score_maximum: score_maximum,
+            timestamp: birl.now() |> birl.to_iso8601(),
+            user_id: user_id,
+            comment: comment,
+            activity_progress: "Completed",
+            grading_progress: "FullyGraded",
+          )
+
+        // Ensure the line item exists by fetching the existing one or creating a new one
+        use line_item <- result.try(ags.fetch_or_create_line_item(
+          app.providers.http,
+          line_items_service_url,
+          line_item_id,
+          fn() { 1.0 },
+          line_item_name,
+          access_token,
+        ))
+
+        // Post the score to the line item
         ags.post_score(app.providers.http, score, line_item, access_token)
       }
-      Error(e) -> {
-        logger.error_meta("Error fetching or creating line item", e)
-        Error("Error fetching or creating line item: " <> string.inspect(e))
+
+      case result {
+        Ok(_) -> {
+          render_html(lti_html.score_sent())
+        }
+        Error(e) -> {
+          logger.error_meta("Error sending score", e)
+
+          render_html(error_page("Error sending score: " <> string.inspect(e)))
+        }
       }
     }
-  }
-
-  case result {
-    Ok(_) -> {
-      render_html(lti_html.score_sent())
-    }
     Error(e) -> {
-      logger.error_meta("Error sending score", e)
+      logger.error_meta("Invalid form data", e)
 
-      render_html(error_page("Error sending score: " <> string.inspect(e)))
+      render_html(error_page("Invalid form data: " <> string.inspect(e)))
     }
   }
+}
+
+type MembershipForm {
+  MembershipForm(context_memberships_url: String, registration_id: Int)
 }
 
 pub fn fetch_memberships(req: Request, app: AppContext) -> Response {
@@ -210,21 +231,27 @@ pub fn fetch_memberships(req: Request, app: AppContext) -> Response {
   use formdata <- wisp.require_form(req)
 
   let result = {
-    use context_memberships_url <- result.try(
-      require_form_field(formdata, "context_memberships_url")
-      |> result.replace_error("Missing context_memberships_url"),
+    use MembershipForm(context_memberships_url, registration_id) <- result.try(
+      form.decoding({
+        use context_memberships_url <- form.parameter
+        use registration_id <- form.parameter
+
+        MembershipForm(context_memberships_url, registration_id)
+      })
+      |> form.with_values(formdata.values)
+      |> form.field(
+        "context_memberships_url",
+        form.string
+          |> form.and(form.must_not_be_empty),
+      )
+      |> form.field("registration_id", form.int)
+      |> form.finish
+      |> result.replace_error("Invalid form data"),
     )
 
     use registration <- result.try(
-      require_form_field(formdata, "registration_id")
-      |> result.then(fn(value) {
-        int.parse(value)
-        |> result.replace_error("Invalid registration_id")
-      })
-      |> result.then(fn(id) {
-        registrations.get(app.db, id)
-        |> result.replace_error("Error fetching registration")
-      })
+      registrations.get(app.db, registration_id)
+      |> result.replace_error("Error fetching registration")
       |> result.map(fn(record) { record.data }),
     )
 

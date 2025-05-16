@@ -30,6 +30,7 @@ glaml = ">= 3.0.2 and < 4.0.0"
 gleam_json = ">= 2.3.0 and < 3.0.0"
 jsx = ">= 3.1.0 and < 4.0.0"
 nakai = ">= 1.1.1 and < 2.0.0"
+formal = ">= 2.2.0 and < 3.0.0"
 
 [dev-dependencies]
 gleeunit = ">= 1.0.0 and < 2.0.0"
