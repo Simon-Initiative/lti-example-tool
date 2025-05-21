@@ -1,5 +1,8 @@
+import gleam/list
 import lti_example_tool/app_context.{type AppContext}
-import wisp
+import lti_example_tool/feature_flags.{type FeatureFlags}
+import lti_example_tool/utils/logger
+import wisp.{type Response}
 
 pub fn middleware(
   req: wisp.Request,
@@ -19,4 +22,19 @@ pub fn middleware(
 fn made_with_gleam(req, cb) -> wisp.Response {
   cb(req)
   |> wisp.set_header("made-with", "Gleam")
+}
+
+pub fn require_feature_flag(
+  app: AppContext,
+  feature: FeatureFlags,
+  cb: fn() -> Response,
+) -> Response {
+  case list.find(app.feature_flags, fn(f) { f == feature }) {
+    Ok(_) -> cb()
+    Error(_) -> {
+      logger.error_meta("Feature flag is disabled", feature)
+
+      wisp.not_found()
+    }
+  }
 }

@@ -51,6 +51,7 @@ fn setup() {
       db: db,
       static_directory: "static_directory",
       providers: providers.Providers(lti_data_provider, http_provider),
+      feature_flags: [],
     ),
   )
 }

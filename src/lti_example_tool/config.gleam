@@ -54,3 +54,10 @@ pub fn database_url() -> String {
     Error(_) -> "postgresql://postgres:postgres@localhost:5432/lti_example_tool"
   }
 }
+
+pub fn env_var(name: String, default: String) {
+  case envoy.get(name) {
+    Ok(value) -> value
+    Error(_) -> default
+  }
+}

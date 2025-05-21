@@ -11,14 +11,18 @@ import lti/services/nrps
 import lti_example_tool/app_context.{type AppContext}
 import lti_example_tool/database.{Record}
 import lti_example_tool/deployments
+import lti_example_tool/feature_flags
 import lti_example_tool/html.{render_html} as _
 import lti_example_tool/html/components/page.{error_page}
 import lti_example_tool/html/registrations_html
 import lti_example_tool/registrations
 import lti_example_tool/utils/logger
+import lti_example_tool/web.{require_feature_flag}
 import wisp.{type Request, type Response}
 
 pub fn resources(req: Request, app: AppContext) -> Response {
+  use <- require_feature_flag(app, feature_flags.Registrations)
+
   // This handler for `/registrations` can respond to both GET and POST requests,
   // so we pattern match on the method here.
   case req.method, wisp.path_segments(req) {

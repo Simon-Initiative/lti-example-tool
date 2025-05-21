@@ -6,6 +6,7 @@ import lti_example_tool/database
 import lti_example_tool/database/migrate_and_seed
 import lti_example_tool/db_provider
 import lti_example_tool/env.{Dev}
+import lti_example_tool/feature_flags
 import lti_example_tool/utils/devtools
 import wisp
 
@@ -25,6 +26,8 @@ pub fn setup() -> AppContext {
 
   let http_provider = httpc_provider.http_provider()
 
+  let feature_flags = feature_flags.load()
+
   AppContext(
     env: env,
     port: port,
@@ -32,6 +35,7 @@ pub fn setup() -> AppContext {
     db: db,
     static_directory: static_directory,
     providers: Providers(lti_data_provider, http_provider),
+    feature_flags: feature_flags,
   )
 }
 
