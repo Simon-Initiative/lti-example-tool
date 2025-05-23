@@ -29,11 +29,8 @@ pub fn require_cookie(
   }
 }
 
-pub fn get_cookie(
-  request request: Request,
-  name name: String,
-) -> Result(String, Nil) {
-  request
+pub fn get_cookie(req: Request, name name: String) -> Result(String, Nil) {
+  req
   |> request.get_cookies
   |> list.key_find(name)
 }

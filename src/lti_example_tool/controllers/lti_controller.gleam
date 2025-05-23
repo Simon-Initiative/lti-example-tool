@@ -48,27 +48,6 @@ pub fn oidc_login(req: Request, app: AppContext) -> Response {
   }
 }
 
-fn all_params(
-  req: Request,
-  cb: fn(Dict(String, String)) -> Response,
-) -> Response {
-  use formdata <- wisp.require_form(req)
-
-  // Combine query and body parameters into a single dictionary
-  let query_params = wisp.get_query(req) |> dict.from_list()
-
-  let body_params =
-    formdata.values
-    |> list.fold(dict.new(), fn(acc, field) {
-      let #(key, value) = field
-      dict.insert(acc, key, value)
-    })
-
-  let params = dict.merge(query_params, body_params)
-
-  cb(params)
-}
-
 pub fn validate_launch(req: Request, app: AppContext) -> Response {
   use params <- all_params(req)
   use session_state <- require_cookie(req, "state", or_else: fn() {
@@ -87,6 +66,22 @@ pub fn validate_launch(req: Request, app: AppContext) -> Response {
       render_html(error_page("Invalid launch: " <> string.inspect(e)))
     }
   }
+}
+
+fn all_params(
+  req: Request,
+  cb: fn(Dict(String, String)) -> Response,
+) -> Response {
+  use formdata <- wisp.require_form(req)
+
+  // Combine query and body parameters into a single dictionary. Body parameters
+  // take precedence over query parameters.
+  let params =
+    wisp.get_query(req)
+    |> dict.from_list()
+    |> dict.merge(dict.from_list(formdata.values))
+
+  cb(params)
 }
 
 type SendScoreForm {
