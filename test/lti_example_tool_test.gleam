@@ -4,14 +4,15 @@ import gleam/result
 import gleam/string
 import gleeunit
 import gleeunit/should
-import lti/deployment.{Deployment}
-import lti/providers
-import lti/providers/http_mock_provider
-import lti/providers/memory_provider
-import lti/registration.{Registration}
+import lightbulb/deployment.{Deployment}
+import lightbulb/providers
+import lightbulb/providers/http_mock_provider
+import lightbulb/providers/memory_provider
+import lightbulb/registration.{Registration}
 import lti_example_tool/app_context.{AppContext}
 import lti_example_tool/config
 import lti_example_tool/env
+import lti_example_tool/feature_flags.{Registrations}
 import lti_example_tool/router
 import pog
 import wisp/testing
@@ -51,7 +52,7 @@ fn setup() {
       db: db,
       static_directory: "static_directory",
       providers: providers.Providers(lti_data_provider, http_provider),
-      feature_flags: [],
+      feature_flags: [Registrations],
     ),
   )
 }

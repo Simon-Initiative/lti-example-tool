@@ -5,9 +5,9 @@ import gleam/int
 import gleam/option.{None, Some}
 import gleam/result
 import gleam/string
-import lti/services/ags
-import lti/services/nrps
-import lti/services/nrps/membership.{type Membership}
+import lightbulb/services/ags
+import lightbulb/services/nrps
+import lightbulb/services/nrps/membership.{type Membership}
 import lti_example_tool/app_context.{type AppContext}
 import lti_example_tool/html/components.{Primary}
 import lti_example_tool/html/components/forms.{Number, Text}

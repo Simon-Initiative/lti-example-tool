@@ -3,8 +3,8 @@ import gleam/dict.{type Dict}
 import gleam/list
 import gleam/result
 import gleam/string
-import lti/deployment.{Deployment}
-import lti/registration.{type Registration, Registration}
+import lightbulb/deployment.{Deployment}
+import lightbulb/registration.{type Registration, Registration}
 import lti_example_tool/database.{type Database}
 import lti_example_tool/deployments
 import lti_example_tool/registrations

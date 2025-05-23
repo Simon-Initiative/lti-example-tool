@@ -1,5 +1,5 @@
 import gleam/dynamic/decode
-import lti/registration.{type Registration, Registration}
+import lightbulb/registration.{type Registration, Registration}
 import lti_example_tool/database.{type Database, Record, one, rows}
 import pog
 

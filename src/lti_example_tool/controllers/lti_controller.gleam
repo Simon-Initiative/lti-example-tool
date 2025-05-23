@@ -9,13 +9,13 @@ import gleam/list
 import gleam/option.{Some}
 import gleam/result
 import gleam/string
-import lti/jose
-import lti/jwk.{type Jwk}
-import lti/services/access_token
-import lti/services/ags
-import lti/services/ags/score.{Score}
-import lti/services/nrps
-import lti/tool
+import lightbulb/jose
+import lightbulb/jwk.{type Jwk}
+import lightbulb/services/access_token
+import lightbulb/services/ags
+import lightbulb/services/ags/score.{Score}
+import lightbulb/services/nrps
+import lightbulb/tool
 import lti_example_tool/app_context.{type AppContext}
 import lti_example_tool/cookies.{require_cookie, set_cookie}
 import lti_example_tool/database.{type Record, Record}

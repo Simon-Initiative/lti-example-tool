@@ -3,11 +3,11 @@ import gleam/int
 import gleam/list
 import gleam/result
 import gleam/string
-import lti/deployment.{Deployment}
-import lti/registration.{Registration}
-import lti/services/access_token
-import lti/services/ags
-import lti/services/nrps
+import lightbulb/deployment.{Deployment}
+import lightbulb/registration.{Registration}
+import lightbulb/services/access_token
+import lightbulb/services/ags
+import lightbulb/services/nrps
 import lti_example_tool/app_context.{type AppContext}
 import lti_example_tool/database.{Record}
 import lti_example_tool/deployments
@@ -71,10 +71,8 @@ pub fn show(req: Request, app: AppContext, registration_id: String) -> Response 
     Ok(Record(data: registration, ..)) -> {
       render_html(registrations_html.show(registration_id, registration))
     }
-    Error(error_msg) -> {
-      logger.error_meta("Failed to fetch registration", error_msg)
-
-      render_html(error_page("Something went wrong"))
+    Error(_error_msg) -> {
+      wisp.not_found()
     }
   }
 }

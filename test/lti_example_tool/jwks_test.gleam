@@ -1,6 +1,6 @@
 import gleam/result
 import gleeunit/should
-import lti/jwk
+import lightbulb/jwk
 import lti_example_tool/config
 import lti_example_tool/jwks
 import pog

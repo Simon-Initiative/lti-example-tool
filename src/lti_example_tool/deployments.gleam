@@ -1,5 +1,5 @@
 import gleam/dynamic/decode
-import lti/deployment.{type Deployment, Deployment}
+import lightbulb/deployment.{type Deployment, Deployment}
 import lti_example_tool/database.{type Database, Record, one, rows}
 import pog
 

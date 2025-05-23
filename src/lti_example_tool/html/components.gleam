@@ -1,11 +1,13 @@
-import nakai/attr.{type Attr, class}
+import gleam/list
+import nakai/attr.{type Attr, Attr, class}
 import nakai/html.{type Node, div}
 
 pub fn card(attrs: List(Attr), children: List(Node)) {
   div(
     [
-      class(
+      merge_classes(
         "w-full max-w-sm p-4 bg-white border border-gray-200 rounded-lg shadow-sm sm:p-6 md:p-8 dark:bg-gray-800 dark:border-gray-700",
+        attrs,
       ),
       ..attrs
     ],
@@ -46,9 +48,17 @@ fn variant_class(variant: Variant) {
 }
 
 pub fn button(variant: Variant, attrs: List(Attr), children: List(Node)) {
-  html.button([class(variant_class(variant)), ..attrs], children)
+  html.button([merge_classes(variant_class(variant), attrs), ..attrs], children)
 }
 
 pub fn link(variant: Variant, attrs: List(Attr), children: List(Node)) {
-  html.a([class(variant_class(variant)), ..attrs], children)
+  html.a([merge_classes(variant_class(variant), attrs), ..attrs], children)
+}
+
+/// HELPER FUNCTIONS
+fn merge_classes(classnames: String, attrs: List(Attr)) {
+  case list.find(attrs, fn(a) { a.name == "class" }) {
+    Ok(Attr(_, c)) -> class(c <> " " <> classnames)
+    Error(Nil) -> class(classnames)
+  }
 }

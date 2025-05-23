@@ -6,7 +6,7 @@ import gleam/list.{Continue, Stop}
 import gleam/result
 import gleam/set
 import gleam/string
-import lti/jwk
+import lightbulb/jwk
 import lti_example_tool/config
 import lti_example_tool/database.{one}
 import lti_example_tool/jwks

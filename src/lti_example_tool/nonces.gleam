@@ -3,7 +3,7 @@ import birl/duration
 import gleam/dynamic/decode
 import gleam/result
 import ids/uuid
-import lti/nonce.{type Nonce, Nonce}
+import lightbulb/nonce.{type Nonce, Nonce}
 import lti_example_tool/database.{
   type Database, one, rows, time_from_timestamp, timestamp_from_time,
 }

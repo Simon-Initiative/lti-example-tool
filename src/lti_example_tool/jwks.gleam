@@ -1,6 +1,6 @@
 import gleam/dynamic/decode
 import gleam/result
-import lti/jwk.{type Jwk, Jwk}
+import lightbulb/jwk.{type Jwk, Jwk}
 import lti_example_tool/database.{type Database, type Record, Record, one, rows}
 import pog
 

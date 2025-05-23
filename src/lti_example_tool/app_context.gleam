@@ -1,4 +1,4 @@
-import lti/providers.{type Providers}
+import lightbulb/providers.{type Providers}
 import lti_example_tool/database.{type Database}
 import lti_example_tool/env.{type Env}
 import lti_example_tool/feature_flags.{type FeatureFlags}

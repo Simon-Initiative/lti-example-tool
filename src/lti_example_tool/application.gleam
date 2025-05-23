@@ -1,5 +1,5 @@
-import lti/providers.{Providers}
-import lti/providers/httpc_provider
+import lightbulb/providers.{Providers}
+import lightbulb/providers/httpc_provider
 import lti_example_tool/app_context.{type AppContext, AppContext}
 import lti_example_tool/config
 import lti_example_tool/database

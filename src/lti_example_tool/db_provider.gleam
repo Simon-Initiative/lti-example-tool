@@ -1,5 +1,5 @@
 import gleam/result
-import lti/providers/data_provider.{type DataProvider, DataProvider}
+import lightbulb/providers/data_provider.{type DataProvider, DataProvider}
 import lti_example_tool/database.{type Database}
 import lti_example_tool/deployments
 import lti_example_tool/jwks

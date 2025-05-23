@@ -1,10 +1,10 @@
 import gleam/int
 import gleam/option.{None}
 import gleam/string
-import lti/registration.{type Registration}
-import lti/services/access_token.{type AccessToken, AccessToken}
-import lti/services/ags
-import lti/services/nrps
+import lightbulb/registration.{type Registration}
+import lightbulb/services/access_token.{type AccessToken, AccessToken}
+import lightbulb/services/ags
+import lightbulb/services/nrps
 import lti_example_tool/database.{type Record, Record}
 import lti_example_tool/html/components.{DangerLink, Link, Primary, Secondary}
 import lti_example_tool/html/components/forms.{Text}
