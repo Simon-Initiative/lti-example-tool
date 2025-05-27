@@ -2,7 +2,6 @@ import gleam/dict.{type Dict}
 import gleam/dynamic.{type Dynamic}
 import gleam/dynamic/decode
 import gleam/int
-import gleam/option.{None, Some}
 import gleam/result
 import gleam/string
 import lightbulb/services/ags
@@ -117,17 +116,17 @@ fn ags_section(app: AppContext, claims: Dict(String, Dynamic)) -> Node {
         Text,
         "Line Item ID",
         "line_item_id",
-        Some("example_assignment"),
+        "example_assignment",
       ),
       forms.labeled_input(
         Text,
         "Line Item Name",
         "line_item_name",
-        Some("Example Assignment"),
+        "Example Assignment",
       ),
-      forms.labeled_input(Number, "Score Given", "score_given", None),
-      forms.labeled_input(Number, "Score Maximum", "score_maximum", None),
-      forms.labeled_input(Text, "Comment", "comment", None),
+      forms.labeled_input(Number, "Score Given", "score_given", ""),
+      forms.labeled_input(Number, "Score Maximum", "score_maximum", ""),
+      forms.labeled_input(Text, "Comment", "comment", ""),
       input([type_("hidden"), name("user_id"), value(user_id)]),
       input([type_("hidden"), name("resource_id"), value(resource_id)]),
       input([

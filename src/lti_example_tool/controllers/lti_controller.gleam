@@ -101,7 +101,7 @@ pub fn send_score(req: Request, app: AppContext) -> Response {
   use <- wisp.require_method(req, http.Post)
   use formdata <- wisp.require_form(req)
 
-  let form =
+  let send_score_form =
     form.decoding({
       use line_item_id <- form.parameter
       use line_item_name <- form.parameter
@@ -140,13 +140,16 @@ pub fn send_score(req: Request, app: AppContext) -> Response {
       "score_maximum",
       form.float |> form.and(form.must_be_greater_float_than(0.0)),
     )
-    |> form.field("comment", form.string)
-    |> form.field("user_id", form.string)
+    |> form.field("comment", form.string |> form.and(form.must_not_be_empty))
+    |> form.field("user_id", form.string |> form.and(form.must_not_be_empty))
     |> form.field("registration_id", form.int)
-    |> form.field("line_items_service_url", form.string)
+    |> form.field(
+      "line_items_service_url",
+      form.string |> form.and(form.must_not_be_empty),
+    )
     |> form.finish()
 
-  case form {
+  case send_score_form {
     Ok(SendScoreForm(
       line_item_id,
       line_item_name,

@@ -1,5 +1,5 @@
+import formal/form.{type Form} as formal_form
 import gleam/int
-import gleam/option.{None}
 import gleam/string
 import lightbulb/registration.{type Registration}
 import lightbulb/services/access_token.{type AccessToken, AccessToken}
@@ -11,7 +11,7 @@ import lti_example_tool/html/components/forms.{Text}
 import lti_example_tool/html/components/page.{page}
 import lti_example_tool/html/components/tables.{Column}
 import nakai/attr.{action, class, href, method, type_}
-import nakai/html.{type Node, code, div, form, h2, p, pre}
+import nakai/html.{type Node, code, div, h2, p, pre}
 
 pub fn index(registrations: List(Record(Int, Registration))) -> Node {
   page("All Registrations", [
@@ -57,7 +57,10 @@ pub fn index(registrations: List(Record(Int, Registration))) -> Node {
 
 pub fn show(registration_id: String, registration: Registration) -> Node {
   page("Platform Registration Details", [
-    div([class("flex flex-col")], [
+    components.link(Link, [href("/registrations")], [
+      html.Text("Back to Registrations"),
+    ]),
+    div([class("flex flex-col p-6")], [
       div([class("text-2xl font-bold")], [html.Text(registration.name)]),
       div([class("text-gray-500")], [html.Text(registration.issuer)]),
       div([class("text-gray-500")], [html.Text(registration.client_id)]),
@@ -67,7 +70,7 @@ pub fn show(registration_id: String, registration: Registration) -> Node {
       ]),
       div([class("text-gray-500")], [html.Text(registration.keyset_url)]),
       div([], [
-        form(
+        html.form(
           [
             method("post"),
             action("/registrations/" <> registration_id <> "/access_token"),
@@ -83,10 +86,12 @@ pub fn show(registration_id: String, registration: Registration) -> Node {
       ]),
     ]),
     div([class("flex flex-row")], [
-      components.link(Link, [href("/registrations")], [
-        html.Text("Back to Registrations"),
-      ]),
-      form(
+      components.link(
+        Link,
+        [href("/registrations/" <> registration_id <> "/edit")],
+        [html.Text("Edit")],
+      ),
+      html.form(
         [
           method("post"),
           action("/registrations/" <> registration_id <> "/delete"),
@@ -103,30 +108,65 @@ pub fn show(registration_id: String, registration: Registration) -> Node {
   ])
 }
 
-pub fn new() {
-  page("Register Platform", [
+pub fn form(
+  title: String,
+  f: Form,
+  submit_action: #(String, String),
+  cancel_action: #(String, String),
+) {
+  page(title, [
     components.card([class("max-w-sm mx-auto")], [
-      form([method("post"), action("/registrations")], [
+      html.form([method("post"), action(submit_action.1)], [
         div([class("flex flex-col")], [
-          forms.labeled_input(Text, "Name", "name", None),
-          forms.labeled_input(Text, "Issuer", "issuer", None),
-          forms.labeled_input(Text, "Client ID", "client_id", None),
-          forms.labeled_input(Text, "Auth Endpoint", "auth_endpoint", None),
+          forms.labeled_input(
+            Text,
+            "Name",
+            "name",
+            formal_form.value(f, "name"),
+          ),
+          forms.labeled_input(
+            Text,
+            "Issuer",
+            "issuer",
+            formal_form.value(f, "issuer"),
+          ),
+          forms.labeled_input(
+            Text,
+            "Client ID",
+            "client_id",
+            formal_form.value(f, "client_id"),
+          ),
+          forms.labeled_input(
+            Text,
+            "Auth Endpoint",
+            "auth_endpoint",
+            formal_form.value(f, "auth_endpoint"),
+          ),
           forms.labeled_input(
             Text,
             "Access Token Endpoint",
             "access_token_endpoint",
-            None,
+            formal_form.value(f, "access_token_endpoint"),
           ),
-          forms.labeled_input(Text, "Keyset URL", "keyset_url", None),
-          forms.labeled_input(Text, "Deployment ID", "deployment_id", None),
+          forms.labeled_input(
+            Text,
+            "Keyset URL",
+            "keyset_url",
+            formal_form.value(f, "keyset_url"),
+          ),
+          forms.labeled_input(
+            Text,
+            "Deployment ID",
+            "deployment_id",
+            formal_form.value(f, "deployment_id"),
+          ),
           components.button(Primary, [class("my-8"), type_("submit")], [
-            html.Text("Register"),
+            html.Text(submit_action.0),
           ]),
           components.link(
             Secondary,
-            [class("my-2 text-center"), href("/registrations")],
-            [html.Text("Cancel")],
+            [class("my-2 text-center"), href(cancel_action.1)],
+            [html.Text(cancel_action.0)],
           ),
         ]),
       ]),

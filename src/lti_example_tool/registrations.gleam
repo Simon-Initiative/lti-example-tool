@@ -1,6 +1,6 @@
 import gleam/dynamic/decode
 import lightbulb/registration.{type Registration, Registration}
-import lti_example_tool/database.{type Database, Record, one, rows}
+import lti_example_tool/database.{type Database, type Record, Record, one, rows}
 import pog
 
 fn registration_decoder() {
@@ -71,10 +71,10 @@ pub fn insert(db: Database, registration: Registration) {
   |> one()
 }
 
-pub fn update(db: Database, record: #(Int, Registration)) {
-  let #(id, registration) = record
+pub fn update(db: Database, record: Record(Int, Registration)) {
+  let Record(id: id, data: registration, ..) = record
 
-  "UPDATE registrations SET name = $1, issuer = $2, client_id = $3, auth_endpoint = $4, access_token_endpoint = $5, keyset_url = $6 WHERE id = $7"
+  "UPDATE registrations SET name = $1, issuer = $2, client_id = $3, auth_endpoint = $4, access_token_endpoint = $5, keyset_url = $6, updated_at = now() WHERE id = $7 RETURNING id, name, issuer, client_id, auth_endpoint, access_token_endpoint, keyset_url, created_at, updated_at"
   |> pog.query()
   |> pog.parameter(pog.text(registration.name))
   |> pog.parameter(pog.text(registration.issuer))
@@ -83,6 +83,7 @@ pub fn update(db: Database, record: #(Int, Registration)) {
   |> pog.parameter(pog.text(registration.access_token_endpoint))
   |> pog.parameter(pog.text(registration.keyset_url))
   |> pog.parameter(pog.int(id))
+  |> pog.returning(registration_decoder())
   |> pog.execute(db)
   |> one()
 }
@@ -92,5 +93,4 @@ pub fn delete(db: Database, id: Int) {
   |> pog.query()
   |> pog.parameter(pog.int(id))
   |> pog.execute(db)
-  |> one()
 }

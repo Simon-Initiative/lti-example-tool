@@ -317,7 +317,7 @@ fn lti_example_tool_migrations() -> List(Migration) {
           CREATE TABLE deployments (
             id SERIAL PRIMARY KEY,
             deployment_id TEXT,
-            registration_id INT REFERENCES registrations(id),
+            registration_id INT REFERENCES registrations(id) ON DELETE CASCADE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(deployment_id, registration_id)
