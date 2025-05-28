@@ -4,7 +4,7 @@ ARG GLEAM_VERSION=1.10.0
 FROM ghcr.io/gleam-lang/gleam:v${GLEAM_VERSION}-erlang-alpine AS builder
 
 RUN apk update && apk add --no-cache build-base python3
-RUN apk add --update nodejs npm elixir
+RUN apk add --update nodejs npm elixir git
 
 WORKDIR /build
 
