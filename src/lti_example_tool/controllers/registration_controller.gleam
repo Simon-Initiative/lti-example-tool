@@ -85,7 +85,7 @@ pub fn show(req: Request, app: AppContext, registration_id: String) -> Response 
 
 pub fn new() -> Response {
   render_html(
-    registrations_html.form(
+    registrations_html.edit(
       "Register Platform",
       Form(dict.new(), dict.new()),
       #("Register", "/registrations"),
@@ -195,7 +195,7 @@ pub fn create(req: Request, app: AppContext) -> Response {
     }
     Error(invalid_form) -> {
       render_html(
-        registrations_html.form(
+        registrations_html.edit(
           "Register Platform",
           invalid_form,
           #("Register", "/registrations"),
@@ -245,7 +245,7 @@ pub fn edit(req: Request, app: AppContext, registration_id: String) -> Response 
         ])
 
       render_html(
-        registrations_html.form(
+        registrations_html.edit(
           "Edit Platform Registration",
           registration_form,
           #("Update", "/registrations/" <> registration_id),
@@ -382,7 +382,7 @@ pub fn update(
     }
     Error(invalid_form) -> {
       render_html(
-        registrations_html.form(
+        registrations_html.edit(
           "Edit Platform Registration",
           invalid_form,
           #("Update", "/registrations/" <> registration_id),
