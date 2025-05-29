@@ -44,7 +44,7 @@ pub fn get_by_issuer_client_id_deployment_id(
 ) {
   "SELECT * FROM deployments d
    JOIN registrations r ON d.registration_id = r.id
-   WHERE r.issuer = $1 AND r.client_id = $2 AND r.deployment_id = $3"
+   WHERE r.issuer = $1 AND r.client_id = $2 AND d.deployment_id = $3"
   |> pog.query()
   |> pog.parameter(pog.text(issuer))
   |> pog.parameter(pog.text(client_id))
