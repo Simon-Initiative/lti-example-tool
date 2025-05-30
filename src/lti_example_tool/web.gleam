@@ -1,5 +1,7 @@
+import gleam/int
 import gleam/list
 import lti_example_tool/app_context.{type AppContext}
+import lti_example_tool/config
 import lti_example_tool/feature_flags.{type FeatureFlags}
 import lti_example_tool/utils/logger
 import wisp.{type Response}
@@ -36,5 +38,17 @@ pub fn require_feature_flag(
 
       wisp.not_found()
     }
+  }
+}
+
+/// Returns the full URL for the tool, including the scheme, host, and port.
+pub fn url() {
+  let scheme = config.scheme()
+  let host = config.host()
+  let port = config.port()
+
+  case port == 80 || port == 443 {
+    True -> scheme <> "://" <> host
+    False -> scheme <> "://" <> host <> ":" <> int.to_string(port)
   }
 }

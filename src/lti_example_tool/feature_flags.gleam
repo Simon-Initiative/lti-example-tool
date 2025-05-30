@@ -19,3 +19,10 @@ pub fn load() -> List(FeatureFlags) {
     }
   })
 }
+
+pub fn feature_enabled(
+  feature_flags: List(FeatureFlags),
+  feature: FeatureFlags,
+) -> Bool {
+  list.contains(feature_flags, feature)
+}

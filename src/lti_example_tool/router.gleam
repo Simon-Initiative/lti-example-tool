@@ -1,5 +1,5 @@
-import gleam/http.{Get}
 import lti_example_tool/app_context.{type AppContext}
+import lti_example_tool/controllers/index_controller
 import lti_example_tool/controllers/lti_controller
 import lti_example_tool/controllers/registration_controller
 import lti_example_tool/web
@@ -14,9 +14,10 @@ pub fn handle_request(req: Request, app: AppContext) -> Response {
   //
   case wisp.path_segments(req) {
     // This matches `/`.
-    [] -> home(req)
+    [] -> index_controller.index(req)
 
-    // This matches `/comments`.
+    // This matches `/registrations` and any sub-paths like
+    // `/registrations/123` or `/registrations/123/edit`.
     ["registrations", ..] -> registration_controller.resources(req, app)
 
     ["login"] -> lti_controller.oidc_login(req, app)
@@ -27,19 +28,9 @@ pub fn handle_request(req: Request, app: AppContext) -> Response {
 
     ["memberships"] -> lti_controller.fetch_memberships(req, app)
 
-    // TODO: REMOVE
-    ["lti", "login"] -> lti_controller.oidc_login(req, app)
-    ["lti", "launch"] -> lti_controller.validate_launch(req, app)
-
     [".well-known", "jwks.json"] -> lti_controller.jwks(req, app)
 
     // This matches all other paths.
     _ -> wisp.not_found()
   }
-}
-
-fn home(req: Request) -> Response {
-  use <- wisp.require_method(req, Get)
-
-  wisp.redirect("/registrations")
 }

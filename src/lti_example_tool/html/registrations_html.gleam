@@ -218,3 +218,17 @@ pub fn access_token(
     ]),
   ])
 }
+
+pub fn feature_not_enabled() -> Node {
+  page("Feature Not Enabled", [
+    div([class("flex flex-col items-center justify-center w-full")], [
+      div([class("w-full max-w-4xl p-4 text-center")], [
+        p([class("")], [
+          html.Text(
+            "Registrations have been disabled. Please contact your administrator.",
+          ),
+        ]),
+      ]),
+    ]),
+  ])
+}
