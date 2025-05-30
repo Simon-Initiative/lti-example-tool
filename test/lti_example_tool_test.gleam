@@ -1,3 +1,4 @@
+import gleam/bit_array
 import gleam/http/response
 import gleam/list
 import gleam/result
@@ -64,11 +65,14 @@ pub fn get_home_page_test() {
   let response = router.handle_request(request, ctx)
 
   response.status
-  |> should.equal(303)
+  |> should.equal(200)
 
-  response.headers
-  |> list.contains(#("location", "/registrations"))
-  |> should.be_true
+  response
+  |> testing.bit_array_body()
+  |> bit_array.to_string()
+  |> result.map(string.contains(_, "LTI Example Tool"))
+  |> result.unwrap(False)
+  |> should.be_true()
 
   response.headers
   |> list.contains(#("made-with", "Gleam"))
