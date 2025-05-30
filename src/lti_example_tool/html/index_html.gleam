@@ -38,7 +38,9 @@ pub fn index(url: String) -> Node {
           a([href("/registrations"), class("text-blue-600 hover:underline")], [
             Text("Create a new Registration"),
           ]),
-          Text(" in this tool with your LMS/Platform details:"),
+          Text(
+            " in this tool with details provided by your LMS/Platform. For example:",
+          ),
         ]),
         div([class("ml-6 mb-4 space-y-1")], [
           div([], [
@@ -86,7 +88,7 @@ pub fn index(url: String) -> Node {
         ]),
         li([], [
           Text(
-            "If running in Docker, use a public URL (not localhost) for registration. Tools like ",
+            "If running in Docker, use a public URL (not localhost) for registration and set the PUBLIC_URL env. Tools like ",
           ),
           a(
             [href("https://ngrok.com/"), class("text-blue-600 hover:underline")],
