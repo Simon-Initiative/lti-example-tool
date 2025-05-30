@@ -1,3 +1,4 @@
+import envoy
 import gleam/int
 import gleam/list
 import lti_example_tool/app_context.{type AppContext}
@@ -41,14 +42,18 @@ pub fn require_feature_flag(
   }
 }
 
-/// Returns the full URL for the tool, including the scheme, host, and port.
-pub fn url() {
-  let scheme = config.scheme()
-  let host = config.host()
-  let port = config.port()
+/// Returns the full public URL for the tool, including the scheme, host, and port.
+pub fn public_url() {
+  case envoy.get("PUBLIC_URL") {
+    Ok(url) -> url
+    Error(_) -> default_url()
+  }
+}
 
-  case port == 80 || port == 443 {
-    True -> scheme <> "://" <> host
-    False -> scheme <> "://" <> host <> ":" <> int.to_string(port)
+fn default_url() {
+  case config.port() {
+    80 -> "http://localhost"
+    443 -> "https://localhost"
+    port -> "http://localhost:" <> int.to_string(port)
   }
 }

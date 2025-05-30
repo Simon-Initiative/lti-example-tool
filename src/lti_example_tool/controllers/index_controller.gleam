@@ -7,7 +7,7 @@ import wisp.{type Request, type Response}
 pub fn index(req: Request) -> Response {
   use <- wisp.require_method(req, Get)
 
-  let url = web.url()
+  let public_url = web.public_url()
 
-  render_html(index_html.index(url))
+  render_html(index_html.index(public_url))
 }

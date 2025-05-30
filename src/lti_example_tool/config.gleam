@@ -19,24 +19,10 @@ pub fn env() -> Env {
   }
 }
 
-pub fn scheme() -> String {
-  case envoy.get("SCHEME") {
-    Ok(scheme) -> scheme
-    Error(_) -> "http"
-  }
-}
-
 pub fn port() -> Int {
   envoy.get("PORT")
   |> result.then(int.parse)
   |> result.unwrap(8080)
-}
-
-pub fn host() -> String {
-  case envoy.get("HOST") {
-    Ok(host) -> host
-    Error(_) -> "localhost"
-  }
 }
 
 pub fn secret_key_base(env: Env) -> String {
