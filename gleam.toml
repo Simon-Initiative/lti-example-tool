@@ -31,8 +31,8 @@ gleam_json = ">= 3.0.1 and < 4.0.0"
 jsx = ">= 3.1.0 and < 4.0.0"
 nakai = ">= 1.1.1 and < 2.0.0"
 formal = ">= 2.2.0 and < 3.0.0"
-lightbulb = ">= 1.0.0 and < 2.0.0"
-#lightbulb = { git = "https://github.com/Simon-Initiative/lightbulb.git", ref = "master" }
+#lightbulb = ">= 1.0.0 and < 2.0.0"
+lightbulb = { git = "https://github.com/Simon-Initiative/lightbulb.git", ref = "master" }
 
 [dev-dependencies]
 gleeunit = ">= 1.0.0 and < 2.0.0"

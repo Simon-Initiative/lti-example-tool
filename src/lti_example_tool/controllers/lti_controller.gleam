@@ -13,6 +13,7 @@ import lightbulb/jose
 import lightbulb/jwk.{type Jwk}
 import lightbulb/services/access_token
 import lightbulb/services/ags
+import lightbulb/services/ags/line_item.{LineItem}
 import lightbulb/services/ags/score.{Score}
 import lightbulb/services/nrps
 import lightbulb/tool
@@ -85,8 +86,8 @@ fn all_params(
 }
 
 type SendScoreForm {
-  SendScoreForm(
-    line_item_id: String,
+  SendLineitemsForm(
+    resource_id: String,
     line_item_name: String,
     score_given: Float,
     score_maximum: Float,
@@ -95,6 +96,15 @@ type SendScoreForm {
     registration_id: Int,
     line_items_service_url: String,
   )
+  SendSingleLineitemForm(
+    resource_id: String,
+    score_given: Float,
+    score_maximum: Float,
+    comment: String,
+    user_id: String,
+    registration_id: Int,
+    line_item_service_url: String,
+  )
 }
 
 pub fn send_score(req: Request, app: AppContext) -> Response {
@@ -102,56 +112,14 @@ pub fn send_score(req: Request, app: AppContext) -> Response {
   use formdata <- wisp.require_form(req)
 
   let send_score_form =
-    form.decoding({
-      use line_item_id <- form.parameter
-      use line_item_name <- form.parameter
-      use score_given <- form.parameter
-      use score_maximum <- form.parameter
-      use comment <- form.parameter
-      use user_id <- form.parameter
-      use registration_id <- form.parameter
-      use line_items_service_url <- form.parameter
-
-      SendScoreForm(
-        line_item_id,
-        line_item_name,
-        score_given,
-        score_maximum,
-        comment,
-        user_id,
-        registration_id,
-        line_items_service_url,
-      )
-    })
-    |> form.with_values(formdata.values)
-    |> form.field(
-      "line_item_id",
-      form.string |> form.and(form.must_not_be_empty),
+    result.or(
+      decode_lineitems_form(formdata),
+      decode_single_lineitem_form(formdata),
     )
-    |> form.field(
-      "line_item_name",
-      form.string |> form.and(form.must_not_be_empty),
-    )
-    |> form.field(
-      "score_given",
-      form.float |> form.and(form.must_be_greater_float_than(0.0)),
-    )
-    |> form.field(
-      "score_maximum",
-      form.float |> form.and(form.must_be_greater_float_than(0.0)),
-    )
-    |> form.field("comment", form.string |> form.and(form.must_not_be_empty))
-    |> form.field("user_id", form.string |> form.and(form.must_not_be_empty))
-    |> form.field("registration_id", form.int)
-    |> form.field(
-      "line_items_service_url",
-      form.string |> form.and(form.must_not_be_empty),
-    )
-    |> form.finish()
 
   case send_score_form {
-    Ok(SendScoreForm(
-      line_item_id,
+    Ok(SendLineitemsForm(
+      resource_id,
       line_item_name,
       score_given,
       score_maximum,
@@ -191,7 +159,7 @@ pub fn send_score(req: Request, app: AppContext) -> Response {
         use line_item <- result.try(ags.fetch_or_create_line_item(
           app.providers.http,
           line_items_service_url,
-          line_item_id,
+          resource_id,
           fn() { 1.0 },
           line_item_name,
           access_token,
@@ -212,12 +180,161 @@ pub fn send_score(req: Request, app: AppContext) -> Response {
         }
       }
     }
+    Ok(SendSingleLineitemForm(
+      resource_id,
+      score_given,
+      score_maximum,
+      comment,
+      user_id,
+      registration_id,
+      line_item_service_url,
+    )) -> {
+      let result = {
+        use registration <- result.try(
+          registrations.get(app.db, registration_id)
+          |> result.replace_error("Error fetching registration")
+          |> result.map(fn(record) { record.data }),
+        )
+
+        use access_token <- result.try(
+          access_token.fetch_access_token(app.providers, registration, [
+            ags.lineitem_scope_url,
+            ags.result_readonly_scope_url,
+            ags.scores_scope_url,
+          ])
+          |> result.replace_error("Error fetching access token"),
+        )
+
+        let score =
+          Score(
+            score_given: score_given,
+            score_maximum: score_maximum,
+            timestamp: birl.now() |> birl.to_iso8601(),
+            user_id: user_id,
+            comment: comment,
+            activity_progress: "Completed",
+            grading_progress: "FullyGraded",
+          )
+
+        let line_item =
+          LineItem(
+            id: Some(line_item_service_url),
+            score_maximum: score_maximum,
+            label: "",
+            resource_id: resource_id,
+          )
+
+        // Post the score to the single line item
+        ags.post_score(app.providers.http, score, line_item, access_token)
+      }
+
+      case result {
+        Ok(_) -> {
+          render_html(lti_html.score_sent())
+        }
+        Error(e) -> {
+          logger.error_meta("Error sending score", e)
+
+          render_html(error_page("Error sending score: " <> string.inspect(e)))
+        }
+      }
+    }
     Error(e) -> {
       logger.error_meta("Invalid form data", e)
 
       render_html(error_page("Invalid form data: " <> string.inspect(e)))
     }
   }
+}
+
+fn decode_lineitems_form(
+  formdata: wisp.FormData,
+) -> Result(SendScoreForm, form.Form) {
+  form.decoding({
+    use resource_id <- form.parameter
+    use line_item_name <- form.parameter
+    use score_given <- form.parameter
+    use score_maximum <- form.parameter
+    use comment <- form.parameter
+    use user_id <- form.parameter
+    use registration_id <- form.parameter
+    use line_items_service_url <- form.parameter
+
+    SendLineitemsForm(
+      resource_id,
+      line_item_name,
+      score_given,
+      score_maximum,
+      comment,
+      user_id,
+      registration_id,
+      line_items_service_url,
+    )
+  })
+  |> form.with_values(formdata.values)
+  |> form.field("resource_id", form.string |> form.and(form.must_not_be_empty))
+  |> form.field(
+    "line_item_name",
+    form.string |> form.and(form.must_not_be_empty),
+  )
+  |> form.field(
+    "score_given",
+    form.float |> form.and(form.must_be_greater_float_than(0.0)),
+  )
+  |> form.field(
+    "score_maximum",
+    form.float |> form.and(form.must_be_greater_float_than(0.0)),
+  )
+  |> form.field("comment", form.string |> form.and(form.must_not_be_empty))
+  |> form.field("user_id", form.string |> form.and(form.must_not_be_empty))
+  |> form.field("registration_id", form.int)
+  |> form.field(
+    "line_items_service_url",
+    form.string |> form.and(form.must_not_be_empty),
+  )
+  |> form.finish()
+}
+
+fn decode_single_lineitem_form(
+  formdata: wisp.FormData,
+) -> Result(SendScoreForm, form.Form) {
+  form.decoding({
+    use resource_id <- form.parameter
+    use score_given <- form.parameter
+    use score_maximum <- form.parameter
+    use comment <- form.parameter
+    use user_id <- form.parameter
+    use registration_id <- form.parameter
+    use line_item_service_url <- form.parameter
+
+    SendSingleLineitemForm(
+      resource_id,
+      score_given,
+      score_maximum,
+      comment,
+      user_id,
+      registration_id,
+      line_item_service_url,
+    )
+  })
+  |> form.with_values(formdata.values)
+  |> form.field("resource_id", form.string |> form.and(form.must_not_be_empty))
+  |> form.field(
+    "score_given",
+    form.float |> form.and(form.must_be_greater_float_than(0.0)),
+  )
+  |> form.field(
+    "score_maximum",
+    form.float |> form.and(form.must_be_greater_float_than(0.0)),
+  )
+  |> form.field("comment", form.string |> form.and(form.must_not_be_empty))
+  |> form.field("user_id", form.string |> form.and(form.must_not_be_empty))
+  |> form.field("registration_id", form.int)
+  |> form.field(
+    "line_item_service_url",
+    form.string |> form.and(form.must_not_be_empty),
+  )
+  |> form.finish()
 }
 
 type MembershipForm {

@@ -2,12 +2,14 @@ import gleam/dict.{type Dict}
 import gleam/dynamic.{type Dynamic}
 import gleam/dynamic/decode
 import gleam/int
+import gleam/option.{Some}
 import gleam/result
 import gleam/string
-import lightbulb/services/ags
+import lightbulb/services/ags.{AgsClaim}
 import lightbulb/services/nrps
 import lightbulb/services/nrps/membership.{type Membership}
 import lti_example_tool/app_context.{type AppContext}
+import lti_example_tool/database.{Record}
 import lti_example_tool/html/components.{Primary}
 import lti_example_tool/html/components/forms.{Number, Text}
 import lti_example_tool/html/components/page.{page}
@@ -74,7 +76,7 @@ fn ags_section(app: AppContext, claims: Dict(String, Dynamic)) -> Node {
         claims,
         "https://purl.imsglobal.org/spec/lti/claim/resource_link",
       )
-      |> result.replace_error("Missing resource_id")
+      |> result.replace_error("Missing resource_link")
       |> result.then(fn(d) {
         let resource_link_decoder = {
           use id <- decode.field("id", decode.string)
@@ -99,51 +101,33 @@ fn ags_section(app: AppContext, claims: Dict(String, Dynamic)) -> Node {
       |> result.then(decode_string),
     )
 
-    use line_items_service_url <- result.try(ags.get_line_items_service_url(
-      claims,
-    ))
+    use ags_claim <- result.try(ags.get_lti_ags_claim(claims))
 
-    use registration <- result.try(
+    use Record(id: registration_id, ..) <- result.try(
       registrations.get_by_issuer_client_id(app.db, issuer, client_id)
       |> result.replace_error("Error fetching registration"),
     )
 
-    form([method("post"), action("/score")], [
-      div([class("my-2 text-gray-500")], [
-        span([class("my-2 font-mono")], [html.Text(line_items_service_url)]),
-      ]),
-      forms.labeled_input(
-        Text,
-        "Line Item ID",
-        "line_item_id",
-        "example_assignment",
-      ),
-      forms.labeled_input(
-        Text,
-        "Line Item Name",
-        "line_item_name",
-        "Example Assignment",
-      ),
-      forms.labeled_input(Number, "Score Given", "score_given", ""),
-      forms.labeled_input(Number, "Score Maximum", "score_maximum", ""),
-      forms.labeled_input(Text, "Comment", "comment", ""),
-      input([type_("hidden"), name("user_id"), value(user_id)]),
-      input([type_("hidden"), name("resource_id"), value(resource_id)]),
-      input([
-        type_("hidden"),
-        name("registration_id"),
-        value(int.to_string(registration.id)),
-      ]),
-      input([
-        type_("hidden"),
-        name("line_items_service_url"),
-        value(line_items_service_url),
-      ]),
-      components.button(Primary, [class("my-8"), type_("submit")], [
-        html.Text("Send Score"),
-      ]),
-    ])
-    |> Ok
+    case ags_claim {
+      AgsClaim(lineitems: Some(line_items_service_url), ..) ->
+        Ok(form_for_lineitems(
+          line_items_service_url,
+          registration_id,
+          user_id,
+          resource_id,
+        ))
+      AgsClaim(lineitem: Some(line_item_service_url), ..) ->
+        Ok(form_for_lineitem(
+          line_item_service_url,
+          registration_id,
+          user_id,
+          resource_id,
+        ))
+      _ ->
+        Error(
+          "AGS Service is not available. No line items or line item service URL found in claims.",
+        )
+    }
   }
 
   section([], [
@@ -166,6 +150,79 @@ fn ags_section(app: AppContext, claims: Dict(String, Dynamic)) -> Node {
           div([class("text-red-500")], [html.Text(reason)]),
         ])
     },
+  ])
+}
+
+fn form_for_lineitem(
+  line_item_service_url: String,
+  registration_id: Int,
+  user_id: String,
+  resource_id: String,
+) -> Node {
+  form([method("post"), action("/score")], [
+    div([class("my-2 text-gray-500")], [
+      span([class("my-2 font-mono")], [html.Text(line_item_service_url)]),
+    ]),
+    div([class("my-2 text-gray-500")], [
+      span([class("my-2 font-mono")], [
+        html.Text("Resource ID: " <> resource_id),
+      ]),
+    ]),
+    forms.labeled_input(Number, "Score Given", "score_given", ""),
+    forms.labeled_input(Number, "Score Maximum", "score_maximum", ""),
+    forms.labeled_input(Text, "Comment", "comment", ""),
+    input([type_("hidden"), name("user_id"), value(user_id)]),
+    input([type_("hidden"), name("resource_id"), value(resource_id)]),
+    input([
+      type_("hidden"),
+      name("registration_id"),
+      value(int.to_string(registration_id)),
+    ]),
+    input([
+      type_("hidden"),
+      name("line_item_service_url"),
+      value(line_item_service_url),
+    ]),
+    components.button(Primary, [class("my-8"), type_("submit")], [
+      html.Text("Send Score"),
+    ]),
+  ])
+}
+
+fn form_for_lineitems(
+  line_items_service_url: String,
+  registration_id: Int,
+  user_id: String,
+  resource_id: String,
+) -> Node {
+  form([method("post"), action("/score")], [
+    div([class("my-2 text-gray-500")], [
+      span([class("my-2 font-mono")], [html.Text(line_items_service_url)]),
+    ]),
+    forms.labeled_input(Text, "Resource ID", "resource_id", resource_id),
+    forms.labeled_input(
+      Text,
+      "Line Item Name",
+      "line_item_name",
+      "Example Assignment",
+    ),
+    forms.labeled_input(Number, "Score Given", "score_given", ""),
+    forms.labeled_input(Number, "Score Maximum", "score_maximum", ""),
+    forms.labeled_input(Text, "Comment", "comment", ""),
+    input([type_("hidden"), name("user_id"), value(user_id)]),
+    input([
+      type_("hidden"),
+      name("registration_id"),
+      value(int.to_string(registration_id)),
+    ]),
+    input([
+      type_("hidden"),
+      name("line_items_service_url"),
+      value(line_items_service_url),
+    ]),
+    components.button(Primary, [class("my-8"), type_("submit")], [
+      html.Text("Send Score"),
+    ]),
   ])
 }
 
