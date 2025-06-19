@@ -9,6 +9,7 @@ import gleam/list
 import gleam/option.{Some}
 import gleam/result
 import gleam/string
+import lightbulb
 import lightbulb/jose
 import lightbulb/jwk.{type Jwk}
 import lightbulb/services/access_token
@@ -16,7 +17,6 @@ import lightbulb/services/ags
 import lightbulb/services/ags/line_item.{LineItem}
 import lightbulb/services/ags/score.{Score}
 import lightbulb/services/nrps
-import lightbulb/tool
 import lti_example_tool/app_context.{type AppContext}
 import lti_example_tool/cookies.{require_cookie, set_cookie}
 import lti_example_tool/database.{type Record, Record}
@@ -31,7 +31,7 @@ import wisp.{type Request, type Response, redirect}
 pub fn oidc_login(req: Request, app: AppContext) -> Response {
   use params <- all_params(req)
 
-  case tool.oidc_login(app.providers.data, params) {
+  case lightbulb.oidc_login(app.providers.data, params) {
     Ok(#(state, redirect_url)) -> {
       use <- set_cookie(
         "state",
@@ -57,7 +57,7 @@ pub fn validate_launch(req: Request, app: AppContext) -> Response {
     render_html(error_page("Required 'state' cookie not found"))
   })
 
-  case tool.validate_launch(app.providers.data, params, session_state) {
+  case lightbulb.validate_launch(app.providers.data, params, session_state) {
     Ok(claims) -> {
       render_html(lti_html.launch_details(claims, app))
     }
