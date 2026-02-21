@@ -68,7 +68,7 @@ fn ags_section(app: AppContext, claims: Dict(String, Dynamic)) -> Node {
     use user_id <- result.try(
       dict.get(claims, "sub")
       |> result.replace_error("Missing user_id")
-      |> result.then(decode_string),
+      |> result.try(decode_string),
     )
 
     use resource_id <- result.try(
@@ -77,7 +77,7 @@ fn ags_section(app: AppContext, claims: Dict(String, Dynamic)) -> Node {
         "https://purl.imsglobal.org/spec/lti/claim/resource_link",
       )
       |> result.replace_error("Missing resource_link")
-      |> result.then(fn(d) {
+      |> result.try(fn(d) {
         let resource_link_decoder = {
           use id <- decode.field("id", decode.string)
 
@@ -92,13 +92,13 @@ fn ags_section(app: AppContext, claims: Dict(String, Dynamic)) -> Node {
     use issuer <- result.try(
       dict.get(claims, "iss")
       |> result.replace_error("Missing iss")
-      |> result.then(decode_string),
+      |> result.try(decode_string),
     )
 
     use client_id <- result.try(
       dict.get(claims, "aud")
       |> result.replace_error("Missing aud")
-      |> result.then(decode_string),
+      |> result.try(decode_string),
     )
 
     use ags_claim <- result.try(ags.get_lti_ags_claim(claims))
@@ -235,13 +235,13 @@ pub fn nrps_section(app: AppContext, claims: Dict(String, Dynamic)) -> Node {
     use issuer <- result.try(
       dict.get(claims, "iss")
       |> result.replace_error("Missing iss")
-      |> result.then(decode_string),
+      |> result.try(decode_string),
     )
 
     use client_id <- result.try(
       dict.get(claims, "aud")
       |> result.replace_error("Missing aud")
-      |> result.then(decode_string),
+      |> result.try(decode_string),
     )
 
     use registration <- result.try(

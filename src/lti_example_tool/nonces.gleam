@@ -2,13 +2,13 @@ import birl
 import birl/duration
 import gleam/dynamic/decode
 import gleam/result
-import ids/uuid
 import lightbulb/nonce.{type Nonce, Nonce}
 import lti_example_tool/database.{
   type Database, one, rows, time_from_timestamp, timestamp_from_time,
 }
 import lti_example_tool/utils/logger
 import pog
+import youid/uuid
 
 fn nonce_decoder() -> decode.Decoder(Nonce) {
   use nonce <- decode.field(0, decode.string)
@@ -51,7 +51,7 @@ pub fn delete(db: Database, value: String) {
 
 /// Creates a nonce and stores it in the database
 pub fn create(db: Database) -> Result(Nonce, String) {
-  use value <- result.try(uuid.generate_v4())
+  let value = uuid.v4_string()
   let expires_at = birl.now() |> birl.add(duration.minutes(5))
 
   let nonce = Nonce(value, expires_at)

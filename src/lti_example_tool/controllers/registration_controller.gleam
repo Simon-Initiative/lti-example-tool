@@ -1,5 +1,4 @@
-import formal/form.{Form}
-import gleam/dict
+import formal/form
 import gleam/http.{Get, Post}
 import gleam/int
 import gleam/result
@@ -97,7 +96,7 @@ pub fn new() -> Response {
   render_html(
     registrations_html.edit(
       "Register Platform",
-      Form(dict.new(), dict.new()),
+      form.new(registration_schema()),
       #("Register", "/registrations"),
       #("Cancel", "/registrations"),
     ),
@@ -116,47 +115,50 @@ type EditRegistrationForm {
   )
 }
 
+fn registration_schema() -> form.Schema(EditRegistrationForm) {
+  {
+    use name <- form.field("name", {
+      form.parse_string |> form.check_not_empty
+    })
+    use issuer <- form.field("issuer", {
+      form.parse_string |> form.check_not_empty
+    })
+    use client_id <- form.field("client_id", {
+      form.parse_string |> form.check_not_empty
+    })
+    use auth_endpoint <- form.field("auth_endpoint", {
+      form.parse_string |> form.check_not_empty
+    })
+    use access_token_endpoint <- form.field("access_token_endpoint", {
+      form.parse_string |> form.check_not_empty
+    })
+    use keyset_url <- form.field("keyset_url", {
+      form.parse_string |> form.check_not_empty
+    })
+    use deployment_id <- form.field("deployment_id", {
+      form.parse_string |> form.check_not_empty
+    })
+
+    form.success(EditRegistrationForm(
+      name,
+      issuer,
+      client_id,
+      auth_endpoint,
+      access_token_endpoint,
+      keyset_url,
+      deployment_id,
+    ))
+  }
+}
+
 pub fn create(req: Request, app: AppContext) -> Response {
   use formdata <- wisp.require_form(req)
 
   let registration_form =
-    form.decoding({
-      use name <- form.parameter
-      use issuer <- form.parameter
-      use client_id <- form.parameter
-      use auth_endpoint <- form.parameter
-      use access_token_endpoint <- form.parameter
-      use keyset_url <- form.parameter
-      use deployment_id <- form.parameter
-
-      EditRegistrationForm(
-        name,
-        issuer,
-        client_id,
-        auth_endpoint,
-        access_token_endpoint,
-        keyset_url,
-        deployment_id,
-      )
-    })
-    |> form.with_values(formdata.values)
-    |> form.field("name", form.string |> form.and(form.must_not_be_empty))
-    |> form.field("issuer", form.string |> form.and(form.must_not_be_empty))
-    |> form.field("client_id", form.string |> form.and(form.must_not_be_empty))
-    |> form.field(
-      "auth_endpoint",
-      form.string |> form.and(form.must_not_be_empty),
-    )
-    |> form.field(
-      "access_token_endpoint",
-      form.string |> form.and(form.must_not_be_empty),
-    )
-    |> form.field("keyset_url", form.string |> form.and(form.must_not_be_empty))
-    |> form.field(
-      "deployment_id",
-      form.string |> form.and(form.must_not_be_empty),
-    )
-    |> form.finish()
+    registration_schema()
+    |> form.new
+    |> form.set_values(formdata.values)
+    |> form.run
 
   case registration_form {
     Ok(EditRegistrationForm(
@@ -199,7 +201,7 @@ pub fn create(req: Request, app: AppContext) -> Response {
         Error(error_msg) -> {
           logger.error_meta("Failed to create registration", error_msg)
 
-          wisp.bad_request()
+          wisp.bad_request(error_msg)
         }
       }
     }
@@ -244,7 +246,8 @@ pub fn edit(req: Request, app: AppContext, registration_id: String) -> Response 
   case record_result {
     Ok(#(Record(data: registration, ..), Record(data: deployment, ..))) -> {
       let registration_form =
-        form.initial_values([
+        form.new(registration_schema())
+        |> form.add_values([
           #("name", registration.name),
           #("issuer", registration.issuer),
           #("client_id", registration.client_id),
@@ -279,43 +282,10 @@ pub fn update(
   use formdata <- wisp.require_form(req)
 
   let registration_form =
-    form.decoding({
-      use name <- form.parameter
-      use issuer <- form.parameter
-      use client_id <- form.parameter
-      use auth_endpoint <- form.parameter
-      use access_token_endpoint <- form.parameter
-      use keyset_url <- form.parameter
-      use deployment_id <- form.parameter
-
-      EditRegistrationForm(
-        name,
-        issuer,
-        client_id,
-        auth_endpoint,
-        access_token_endpoint,
-        keyset_url,
-        deployment_id,
-      )
-    })
-    |> form.with_values(formdata.values)
-    |> form.field("name", form.string |> form.and(form.must_not_be_empty))
-    |> form.field("issuer", form.string |> form.and(form.must_not_be_empty))
-    |> form.field("client_id", form.string |> form.and(form.must_not_be_empty))
-    |> form.field(
-      "auth_endpoint",
-      form.string |> form.and(form.must_not_be_empty),
-    )
-    |> form.field(
-      "access_token_endpoint",
-      form.string |> form.and(form.must_not_be_empty),
-    )
-    |> form.field("keyset_url", form.string |> form.and(form.must_not_be_empty))
-    |> form.field(
-      "deployment_id",
-      form.string |> form.and(form.must_not_be_empty),
-    )
-    |> form.finish()
+    registration_schema()
+    |> form.new
+    |> form.set_values(formdata.values)
+    |> form.run
 
   case registration_form {
     Ok(EditRegistrationForm(
@@ -331,7 +301,7 @@ pub fn update(
         use registration_record <- result.try(
           int.parse(registration_id)
           |> result.replace_error("Invalid registration ID")
-          |> result.then(fn(id) {
+          |> result.try(fn(id) {
             registrations.get(app.db, id)
             |> result.replace_error("Registration not found")
           }),
@@ -386,7 +356,7 @@ pub fn update(
         Error(error_msg) -> {
           logger.error_meta("Failed to create registration", error_msg)
 
-          wisp.bad_request()
+          wisp.bad_request(error_msg)
         }
       }
     }
@@ -438,7 +408,7 @@ pub fn access_token(
     use registration <- result.try(
       int.parse(registration_id)
       |> result.replace_error("Invalid registration ID")
-      |> result.then(fn(id) {
+      |> result.try(fn(id) {
         registrations.get(app.db, id)
         |> result.replace_error("Registration not found")
       })

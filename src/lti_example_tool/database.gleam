@@ -1,9 +1,11 @@
 import birl.{type Time}
 import gleam/dynamic/decode
+import gleam/erlang/process
 import gleam/int
 import gleam/list
 import gleam/result
 import gleam/string
+import gleam/time/timestamp
 import lti_example_tool/config
 import lti_example_tool/utils/logger
 import pog.{type Connection}
@@ -13,10 +15,14 @@ pub type Database =
 
 pub fn connect() -> Result(Database, String) {
   let url = config.database_url()
+  let pool_name = process.new_name("lti_example_tool_db")
   use db_config <- result.try(
-    pog.url_config(url) |> result.map_error(string.inspect),
+    pog.url_config(pool_name, url) |> result.map_error(string.inspect),
   )
-  let db = pog.connect(db_config)
+  use started <- result.try(
+    pog.start(db_config) |> result.map_error(string.inspect),
+  )
+  let db = started.data
 
   // verify connection was successful
   case
@@ -34,18 +40,24 @@ pub fn connect() -> Result(Database, String) {
 }
 
 pub fn disconnect(db: Connection) {
-  pog.disconnect(db)
+  let _ = db
+  Nil
 }
 
 pub type Record(pk, a) {
-  Record(id: pk, created_at: pog.Timestamp, updated_at: pog.Timestamp, data: a)
+  Record(
+    id: pk,
+    created_at: timestamp.Timestamp,
+    updated_at: timestamp.Timestamp,
+    data: a,
+  )
 }
 
 pub type DatabaseError {
   DatabaseError(e: String)
   QueryError(e: pog.QueryError)
   ExpectedSingleRow(num_rows: Int)
-  TransactionError(e: pog.TransactionError)
+  TransactionError(e: pog.TransactionError(String))
 }
 
 pub fn count(query_result: Result(pog.Returned(a), pog.QueryError)) {
@@ -63,7 +75,7 @@ pub fn rows(query_result: Result(pog.Returned(a), pog.QueryError)) {
 pub fn one(query_result: Result(pog.Returned(a), pog.QueryError)) {
   query_result
   |> result.map_error(QueryError)
-  |> result.then(fn(returned) {
+  |> result.try(fn(returned) {
     case returned.rows {
       [row] -> Ok(row)
       rows -> Error(ExpectedSingleRow(list.length(rows)))
@@ -102,18 +114,10 @@ pub fn humanize_error(error: DatabaseError) {
   }
 }
 
-pub fn timestamp_from_time(time: Time) -> pog.Timestamp {
-  let #(#(year, month, day), #(hour, minute, second)) =
-    birl.to_erlang_universal_datetime(time)
-
-  pog.Timestamp(pog.Date(year, month, day), pog.Time(hour, minute, second, 0))
+pub fn timestamp_from_time(time: Time) -> timestamp.Timestamp {
+  birl.to_timestamp(time)
 }
 
-pub fn time_from_timestamp(timestamp: pog.Timestamp) -> Time {
-  let pog.Date(year, month, day) = timestamp.date
-  let pog.Time(hour, minute, second, _u_second) = timestamp.time
-
-  birl.from_erlang_universal_datetime(
-    #(#(year, month, day), #(hour, minute, second)),
-  )
+pub fn time_from_timestamp(timestamp: timestamp.Timestamp) -> Time {
+  birl.from_timestamp(timestamp)
 }

@@ -21,7 +21,7 @@ pub fn env() -> Env {
 
 pub fn port() -> Int {
   envoy.get("PORT")
-  |> result.then(int.parse)
+  |> result.try(int.parse)
   |> result.unwrap(8080)
 }
 

@@ -248,18 +248,32 @@ pub fn send_score(req: Request, app: AppContext) -> Response {
 
 fn decode_lineitems_form(
   formdata: wisp.FormData,
-) -> Result(SendScoreForm, form.Form) {
-  form.decoding({
-    use resource_id <- form.parameter
-    use line_item_name <- form.parameter
-    use score_given <- form.parameter
-    use score_maximum <- form.parameter
-    use comment <- form.parameter
-    use user_id <- form.parameter
-    use registration_id <- form.parameter
-    use line_items_service_url <- form.parameter
+) -> Result(SendScoreForm, form.Form(SendScoreForm)) {
+  let schema = {
+    use resource_id <- form.field("resource_id", {
+      form.parse_string |> form.check_not_empty
+    })
+    use line_item_name <- form.field("line_item_name", {
+      form.parse_string |> form.check_not_empty
+    })
+    use score_given <- form.field("score_given", {
+      form.parse_float |> form.check_float_more_than(0.0)
+    })
+    use score_maximum <- form.field("score_maximum", {
+      form.parse_float |> form.check_float_more_than(0.0)
+    })
+    use comment <- form.field("comment", {
+      form.parse_string |> form.check_not_empty
+    })
+    use user_id <- form.field("user_id", {
+      form.parse_string |> form.check_not_empty
+    })
+    use registration_id <- form.field("registration_id", form.parse_int)
+    use line_items_service_url <- form.field("line_items_service_url", {
+      form.parse_string |> form.check_not_empty
+    })
 
-    SendLineitemsForm(
+    form.success(SendLineitemsForm(
       resource_id,
       line_item_name,
       score_given,
@@ -268,45 +282,39 @@ fn decode_lineitems_form(
       user_id,
       registration_id,
       line_items_service_url,
-    )
-  })
-  |> form.with_values(formdata.values)
-  |> form.field("resource_id", form.string |> form.and(form.must_not_be_empty))
-  |> form.field(
-    "line_item_name",
-    form.string |> form.and(form.must_not_be_empty),
-  )
-  |> form.field(
-    "score_given",
-    form.float |> form.and(form.must_be_greater_float_than(0.0)),
-  )
-  |> form.field(
-    "score_maximum",
-    form.float |> form.and(form.must_be_greater_float_than(0.0)),
-  )
-  |> form.field("comment", form.string |> form.and(form.must_not_be_empty))
-  |> form.field("user_id", form.string |> form.and(form.must_not_be_empty))
-  |> form.field("registration_id", form.int)
-  |> form.field(
-    "line_items_service_url",
-    form.string |> form.and(form.must_not_be_empty),
-  )
-  |> form.finish()
+    ))
+  }
+  schema
+  |> form.new
+  |> form.set_values(formdata.values)
+  |> form.run
 }
 
 fn decode_single_lineitem_form(
   formdata: wisp.FormData,
-) -> Result(SendScoreForm, form.Form) {
-  form.decoding({
-    use resource_id <- form.parameter
-    use score_given <- form.parameter
-    use score_maximum <- form.parameter
-    use comment <- form.parameter
-    use user_id <- form.parameter
-    use registration_id <- form.parameter
-    use line_item_service_url <- form.parameter
+) -> Result(SendScoreForm, form.Form(SendScoreForm)) {
+  let schema = {
+    use resource_id <- form.field("resource_id", {
+      form.parse_string |> form.check_not_empty
+    })
+    use score_given <- form.field("score_given", {
+      form.parse_float |> form.check_float_more_than(0.0)
+    })
+    use score_maximum <- form.field("score_maximum", {
+      form.parse_float |> form.check_float_more_than(0.0)
+    })
+    use comment <- form.field("comment", {
+      form.parse_string |> form.check_not_empty
+    })
+    use user_id <- form.field("user_id", {
+      form.parse_string |> form.check_not_empty
+    })
+    use registration_id <- form.field("registration_id", form.parse_int)
+    use line_item_service_url <- form.field("line_item_service_url", {
+      form.parse_string |> form.check_not_empty
+    })
 
-    SendSingleLineitemForm(
+    form.success(SendSingleLineitemForm(
       resource_id,
       score_given,
       score_maximum,
@@ -314,26 +322,12 @@ fn decode_single_lineitem_form(
       user_id,
       registration_id,
       line_item_service_url,
-    )
-  })
-  |> form.with_values(formdata.values)
-  |> form.field("resource_id", form.string |> form.and(form.must_not_be_empty))
-  |> form.field(
-    "score_given",
-    form.float |> form.and(form.must_be_greater_float_than(0.0)),
-  )
-  |> form.field(
-    "score_maximum",
-    form.float |> form.and(form.must_be_greater_float_than(0.0)),
-  )
-  |> form.field("comment", form.string |> form.and(form.must_not_be_empty))
-  |> form.field("user_id", form.string |> form.and(form.must_not_be_empty))
-  |> form.field("registration_id", form.int)
-  |> form.field(
-    "line_item_service_url",
-    form.string |> form.and(form.must_not_be_empty),
-  )
-  |> form.finish()
+    ))
+  }
+  schema
+  |> form.new
+  |> form.set_values(formdata.values)
+  |> form.run
 }
 
 type MembershipForm {
@@ -346,20 +340,16 @@ pub fn fetch_memberships(req: Request, app: AppContext) -> Response {
 
   let result = {
     use MembershipForm(context_memberships_url, registration_id) <- result.try(
-      form.decoding({
-        use context_memberships_url <- form.parameter
-        use registration_id <- form.parameter
+      form.new({
+        use context_memberships_url <- form.field("context_memberships_url", {
+          form.parse_string |> form.check_not_empty
+        })
+        use registration_id <- form.field("registration_id", form.parse_int)
 
-        MembershipForm(context_memberships_url, registration_id)
+        form.success(MembershipForm(context_memberships_url, registration_id))
       })
-      |> form.with_values(formdata.values)
-      |> form.field(
-        "context_memberships_url",
-        form.string
-          |> form.and(form.must_not_be_empty),
-      )
-      |> form.field("registration_id", form.int)
-      |> form.finish
+      |> form.set_values(formdata.values)
+      |> form.run
       |> result.replace_error("Invalid form data"),
     )
 
@@ -419,7 +409,7 @@ pub fn jwks(_req: Request, app: AppContext) -> Response {
         function.identity,
         json.array(_, json.dict(_, function.identity, json.string)),
       )
-      |> json.to_string_tree()
+      |> json.to_string()
       |> wisp.json_response(200)
     }
     Error(e) -> {

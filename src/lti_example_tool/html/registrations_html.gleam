@@ -110,7 +110,7 @@ pub fn show(registration_id: String, registration: Registration) -> Node {
 
 pub fn edit(
   title: String,
-  f: Form,
+  f: Form(a),
   submit_action: #(String, String),
   cancel_action: #(String, String),
 ) {
@@ -118,37 +118,47 @@ pub fn edit(
     components.card([class("max-w-sm mx-auto")], [
       html.form([method("post"), action(submit_action.1)], [
         div([class("flex flex-col")], [
-          forms.labeled_input(Text, "Name", "name", form.value(f, "name")),
-          forms.labeled_input(Text, "Issuer", "issuer", form.value(f, "issuer")),
+          forms.labeled_input(
+            Text,
+            "Name",
+            "name",
+            form.field_value(f, "name"),
+          ),
+          forms.labeled_input(
+            Text,
+            "Issuer",
+            "issuer",
+            form.field_value(f, "issuer"),
+          ),
           forms.labeled_input(
             Text,
             "Client ID",
             "client_id",
-            form.value(f, "client_id"),
+            form.field_value(f, "client_id"),
           ),
           forms.labeled_input(
             Text,
             "Auth Endpoint",
             "auth_endpoint",
-            form.value(f, "auth_endpoint"),
+            form.field_value(f, "auth_endpoint"),
           ),
           forms.labeled_input(
             Text,
             "Access Token Endpoint",
             "access_token_endpoint",
-            form.value(f, "access_token_endpoint"),
+            form.field_value(f, "access_token_endpoint"),
           ),
           forms.labeled_input(
             Text,
             "Keyset URL",
             "keyset_url",
-            form.value(f, "keyset_url"),
+            form.field_value(f, "keyset_url"),
           ),
           forms.labeled_input(
             Text,
             "Deployment ID",
             "deployment_id",
-            form.value(f, "deployment_id"),
+            form.field_value(f, "deployment_id"),
           ),
           components.button(Primary, [class("my-8"), type_("submit")], [
             html.Text(submit_action.0),

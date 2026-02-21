@@ -1,6 +1,7 @@
 import argv
 import gleam/dynamic.{type Dynamic}
 import gleam/dynamic/decode
+import gleam/erlang/process
 import gleam/io
 import gleam/list.{Continue, Stop}
 import gleam/result
@@ -19,26 +20,23 @@ pub fn main() {
 
   let database_url = config.database_url()
 
-  let assert Ok(db_config) = pog.url_config(database_url)
+  let assert Ok(db_config) =
+    pog.url_config(process.new_name("lti_example_tool_db"), database_url)
   let test_db_config =
     pog.Config(..db_config, database: db_config.database <> "_test")
 
   case argv.load().arguments {
     ["migrate"] -> {
-      let db = pog.connect(db_config)
+      let db = open(db_config)
 
       let assert Ok(_) = migrate(db)
-
-      pog.disconnect(db)
 
       Nil
     }
     ["seed"] -> {
-      let db = pog.connect(db_config)
+      let db = open(db_config)
 
       let _ = seed(db)
-
-      pog.disconnect(db)
 
       Nil
     }
@@ -46,12 +44,10 @@ pub fn main() {
     ["test.setup"] -> {
       create_database(test_db_config)
 
-      let db = pog.connect(test_db_config)
+      let db = open(test_db_config)
 
       let assert Ok(_) = migrate(db)
       let _ = seed(db)
-
-      pog.disconnect(db)
 
       Nil
     }
@@ -80,7 +76,8 @@ fn sleep(time_ms: Int) -> Nil
 pub fn initialize_db() {
   let database_url = config.database_url()
 
-  let assert Ok(db_config) = pog.url_config(database_url)
+  let assert Ok(db_config) =
+    pog.url_config(process.new_name("lti_example_tool_db"), database_url)
 
   case db_exists(db_config) {
     True -> {
@@ -104,7 +101,7 @@ fn db_exists(db_config: pog.Config) -> Bool {
 
   logger.debug("Checking if database '" <> db_name <> "' exists...")
 
-  let conn = pog.connect(pog.Config(..db_config, database: "postgres"))
+  let conn = open(pog.Config(..db_config, database: "postgres"))
 
   let returned =
     "SELECT 1 FROM pg_database WHERE datname::text = $1;"
@@ -113,8 +110,6 @@ fn db_exists(db_config: pog.Config) -> Bool {
     |> pog.returning(decode.at([0], decode.int))
     |> pog.execute(conn)
     |> one()
-
-  pog.disconnect(conn)
 
   case returned {
     Ok(_) -> True
@@ -125,12 +120,10 @@ fn db_exists(db_config: pog.Config) -> Bool {
 fn setup(db_config) {
   create_database(db_config)
 
-  let db = pog.connect(db_config)
+  let db = open(db_config)
 
   let assert Ok(_) = migrate(db)
   let _ = seed(db)
-
-  pog.disconnect(db)
 
   Nil
 }
@@ -140,15 +133,13 @@ fn create_database(db_config: pog.Config) {
 
   logger.info("Creating database '" <> db_name <> "'...")
 
-  let conn = pog.connect(pog.Config(..db_config, database: "postgres"))
+  let conn = open(pog.Config(..db_config, database: "postgres"))
 
   let sql = "CREATE DATABASE " <> db_name <> ";"
   let assert Ok(_) =
     pog.query(sql)
     |> pog.returning(decode.dynamic)
     |> pog.execute(conn)
-
-  pog.disconnect(conn)
 
   logger.info("Database created.")
 }
@@ -158,15 +149,13 @@ fn drop_database(db_config: pog.Config) {
 
   logger.info("Dropping database '" <> db_name <> "'...")
 
-  let conn = pog.connect(pog.Config(..db_config, database: "postgres"))
+  let conn = open(pog.Config(..db_config, database: "postgres"))
 
   let sql = "DROP DATABASE IF EXISTS " <> db_name <> ";"
   let assert Ok(_) =
     pog.query(sql)
     |> pog.returning(decode.dynamic)
     |> pog.execute(conn)
-
-  pog.disconnect(conn)
 
   logger.info("Database dropped.")
 }
@@ -175,17 +164,20 @@ fn reset(db_config: pog.Config) {
   drop_database(db_config)
   create_database(db_config)
 
-  let db = pog.connect(db_config)
+  let db = open(db_config)
 
   use _ <- result.try(migrate(db))
 
   let _ = seed(db)
 
-  pog.disconnect(db)
-
   logger.info("Database reset.")
 
   Ok(Nil)
+}
+
+fn open(db_config: pog.Config) -> Connection {
+  let assert Ok(started) = pog.start(db_config)
+  started.data
 }
 
 type Migration {

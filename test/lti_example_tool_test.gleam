@@ -1,4 +1,5 @@
-import gleam/bit_array
+import gleam/erlang/process
+import gleam/http
 import gleam/http/response
 import gleam/list
 import gleam/result
@@ -16,19 +17,23 @@ import lti_example_tool/env
 import lti_example_tool/feature_flags.{Registrations}
 import lti_example_tool/router
 import pog
-import wisp/testing
+import wisp/simulate as testing
 
 pub fn main() {
   gleeunit.main()
 }
 
 fn test_db() {
-  config.database_url()
-  |> pog.url_config()
-  |> result.map(fn(db_config) {
-    pog.connect(
+  pog.url_config(
+    process.new_name("lti_example_tool_test_db"),
+    config.database_url(),
+  )
+  |> result.try(fn(db_config) {
+    pog.start(
       pog.Config(..db_config, database: db_config.database <> "_test"),
     )
+    |> result.map(fn(started) { started.data })
+    |> result.replace_error(Nil)
   })
 }
 
@@ -61,17 +66,15 @@ fn setup() {
 pub fn get_home_page_test() {
   let #(_memory_provider, ctx) = setup()
 
-  let request = testing.get("/", [])
+  let request = testing.request(http.Get, "/")
   let response = router.handle_request(request, ctx)
 
   response.status
   |> should.equal(200)
 
   response
-  |> testing.bit_array_body()
-  |> bit_array.to_string()
-  |> result.map(string.contains(_, "LTI Example Tool"))
-  |> result.unwrap(False)
+  |> testing.read_body()
+  |> string.contains("LTI Example Tool")
   |> should.be_true()
 
   response.headers
@@ -110,7 +113,9 @@ pub fn login_test() {
     #("login_hint", "d9d4526d-3395-4f16-ba7f-242a9f1b9d20"),
     #("target_link_uri", "http://example.com/launch"),
   ]
-  let request = testing.post_form("/login", [], form_data)
+  let request =
+    testing.request(http.Post, "/login")
+    |> testing.form_body(form_data)
   let response = router.handle_request(request, ctx)
 
   response.status
@@ -144,7 +149,9 @@ pub fn login_test() {
 pub fn post_home_page_test() {
   let #(_memory_provider, ctx) = setup()
 
-  let request = testing.post("/", [], "a body")
+  let request =
+    testing.request(http.Post, "/")
+    |> testing.string_body("a body")
   let response = router.handle_request(request, ctx)
 
   response.status
@@ -154,7 +161,7 @@ pub fn post_home_page_test() {
 pub fn page_not_found_test() {
   let #(_memory_provider, ctx) = setup()
 
-  let request = testing.get("/nothing-here", [])
+  let request = testing.request(http.Get, "/nothing-here")
   let response = router.handle_request(request, ctx)
 
   response.status
@@ -164,7 +171,7 @@ pub fn page_not_found_test() {
 pub fn get_registrations_test() {
   let #(_memory_provider, ctx) = setup()
 
-  let request = testing.get("/registrations", [])
+  let request = testing.request(http.Get, "/registrations")
   let response = router.handle_request(request, ctx)
 
   response.status
@@ -174,7 +181,7 @@ pub fn get_registrations_test() {
 pub fn get_registration_test() {
   let #(_memory_provider, ctx) = setup()
 
-  let request = testing.get("/registrations/123", [])
+  let request = testing.request(http.Get, "/registrations/123")
   let response = router.handle_request(request, ctx)
 
   response.status
