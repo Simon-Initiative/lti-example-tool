@@ -1,4 +1,4 @@
-ARG GLEAM_VERSION=1.10.0
+ARG GLEAM_VERSION=1.14.0
 
 # Builder stage
 FROM ghcr.io/gleam-lang/gleam:v${GLEAM_VERSION}-erlang-alpine AS builder
