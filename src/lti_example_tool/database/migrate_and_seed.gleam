@@ -332,6 +332,33 @@ fn lti_example_tool_migrations() -> List(Migration) {
       },
     ),
     Migration(
+      name: "create_oidc_states_table",
+      up: fn(conn) {
+        let assert Ok(_) =
+          "
+          CREATE TABLE oidc_states (
+            state TEXT PRIMARY KEY,
+            expires_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(state)
+          );
+        "
+          |> pog.query()
+          |> pog.returning(decode.dynamic)
+          |> pog.execute(conn)
+          |> result.map_error(string.inspect)
+      },
+      down: fn(conn) {
+        let assert Ok(_) =
+          "
+          DROP TABLE oidc_states;
+        "
+          |> pog.query()
+          |> pog.returning(decode.dynamic)
+          |> pog.execute(conn)
+          |> result.map_error(string.inspect)
+      },
+    ),
+    Migration(
       name: "create_nonces_table",
       up: fn(conn) {
         let assert Ok(_) =

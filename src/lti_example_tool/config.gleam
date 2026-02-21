@@ -41,6 +41,22 @@ pub fn secret_key_base(env: Env) -> String {
   }
 }
 
+/// Returns the full public URL for the tool, including the scheme, host, and port.
+pub fn public_url() {
+  case envoy.get("PUBLIC_URL") {
+    Ok(url) -> url
+    Error(_) -> default_url()
+  }
+}
+
+fn default_url() {
+  case port() {
+    80 -> "http://localhost"
+    443 -> "https://localhost"
+    port -> "http://localhost:" <> int.to_string(port)
+  }
+}
+
 pub fn db_name() -> String {
   case envoy.get("DB_NAME") {
     Ok(db_name) -> db_name

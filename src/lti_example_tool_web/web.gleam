@@ -1,8 +1,5 @@
-import envoy
-import gleam/int
 import gleam/list
 import lti_example_tool/app_context.{type AppContext}
-import lti_example_tool/config
 import lti_example_tool/feature_flags.{type FeatureFlags}
 import lti_example_tool/utils/logger
 import wisp.{type Response}
@@ -39,21 +36,5 @@ pub fn require_feature_flag(
 
       wisp.not_found()
     }
-  }
-}
-
-/// Returns the full public URL for the tool, including the scheme, host, and port.
-pub fn public_url() {
-  case envoy.get("PUBLIC_URL") {
-    Ok(url) -> url
-    Error(_) -> default_url()
-  }
-}
-
-fn default_url() {
-  case config.port() {
-    80 -> "http://localhost"
-    443 -> "https://localhost"
-    port -> "http://localhost:" <> int.to_string(port)
   }
 }

@@ -24,6 +24,10 @@ pub fn handle_request(req: Request, app: AppContext) -> Response {
 
     ["launch"] -> lti_controller.validate_launch(req, app)
 
+    ["app"] -> lti_controller.app(req, app)
+
+    ["api", "me"] -> lti_controller.current_user(req, app)
+
     ["score"] -> lti_controller.send_score(req, app)
 
     ["memberships"] -> lti_controller.fetch_memberships(req, app)

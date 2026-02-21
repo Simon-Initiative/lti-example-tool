@@ -118,30 +118,6 @@ pub fn login_test() {
 
   response.status
   |> should.equal(303)
-
-  response.headers
-  |> list.find(fn(header) {
-    case header {
-      #("set-cookie", _) -> True
-      _ -> False
-    }
-  })
-  |> result.map(fn(header) {
-    case header {
-      #("set-cookie", cookie) -> {
-        {
-          string.contains(cookie, "state=")
-          && string.contains(
-            cookie,
-            "Max-Age=86400; Path=/; Secure; HttpOnly; SameSite=None",
-          )
-        }
-        |> should.be_true
-      }
-      _ -> Nil
-    }
-  })
-  |> should.be_ok
 }
 
 pub fn post_home_page_test() {
@@ -184,4 +160,24 @@ pub fn get_registration_test() {
 
   response.status
   |> should.equal(404)
+}
+
+pub fn get_current_user_unauthorized_test() {
+  let #(_memory_provider, ctx) = setup()
+
+  let request = testing.request(http.Get, "/api/me")
+  let response = router.handle_request(request, ctx)
+
+  response.status
+  |> should.equal(401)
+}
+
+pub fn get_app_unauthorized_test() {
+  let #(_memory_provider, ctx) = setup()
+
+  let request = testing.request(http.Get, "/app")
+  let response = router.handle_request(request, ctx)
+
+  response.status
+  |> should.equal(401)
 }

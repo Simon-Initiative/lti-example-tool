@@ -26,6 +26,9 @@ RUN gleam build
 # build tailwind styles
 RUN npm run tailwind:build
 
+# build client app
+RUN npm run client:build
+
 # # build release
 RUN gleam export erlang-shipment
 

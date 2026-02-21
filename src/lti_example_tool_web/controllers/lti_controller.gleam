@@ -1,6 +1,8 @@
 import birl
 import formal/form
 import gleam/dict.{type Dict}
+import gleam/dynamic.{type Dynamic}
+import gleam/dynamic/decode
 import gleam/function
 import gleam/http
 import gleam/http/cookie
@@ -9,6 +11,7 @@ import gleam/list
 import gleam/option.{Some}
 import gleam/result
 import gleam/string
+import gleam/uri
 import lightbulb
 import lightbulb/jose
 import lightbulb/jwk.{type Jwk}
@@ -20,30 +23,46 @@ import lightbulb/services/nrps
 import lti_example_tool/app_context.{type AppContext}
 import lti_example_tool/database.{type Record, Record}
 import lti_example_tool/jwks
+import lti_example_tool/oidc_states
 import lti_example_tool/registrations
 import lti_example_tool/utils/logger
 import lti_example_tool_web/cookies.{require_cookie, set_cookie}
-import lti_example_tool_web/html.{render_html} as _
+import lti_example_tool_web/html.{render_html, render_html_status} as _
 import lti_example_tool_web/html/components/page.{error_page}
 import lti_example_tool_web/html/lti_html
 import wisp.{type Request, type Response, redirect}
+
+const launch_session_cookie_name = "launch_session"
+
+const roles_claim = "https://purl.imsglobal.org/spec/lti/claim/roles"
+
+const context_claim = "https://purl.imsglobal.org/spec/lti/claim/context"
+
+type LaunchSession {
+  LaunchSession(
+    sub: String,
+    name: String,
+    email: String,
+    issuer: String,
+    audience: String,
+    roles: List(String),
+    context_title: String,
+  )
+}
 
 pub fn oidc_login(req: Request, app: AppContext) -> Response {
   use params <- all_params(req)
 
   case lightbulb.oidc_login(app.providers.data, params) {
     Ok(#(state, redirect_url)) -> {
-      use <- set_cookie(
-        "state",
-        state,
-        cookie.Attributes(
-          ..cookie.defaults(http.Https),
-          same_site: Some(cookie.None),
-          max_age: option.Some(60 * 60 * 24),
-        ),
-      )
+      case oidc_states.create(app.db, state) {
+        Ok(_) -> redirect(to: redirect_url)
+        Error(e) -> {
+          logger.error_meta("Failed to persist oidc state", e)
 
-      redirect(to: redirect_url)
+          render_html(error_page("OIDC login failed: unable to persist state"))
+        }
+      }
     }
     Error(error) -> render_html(error_page("OIDC login failed: " <> error))
   }
@@ -51,22 +70,244 @@ pub fn oidc_login(req: Request, app: AppContext) -> Response {
 
 pub fn validate_launch(req: Request, app: AppContext) -> Response {
   use params <- all_params(req)
-  use session_state <- require_cookie(req, "state", or_else: fn() {
-    logger.error("Required 'state' cookie not found")
+  let session_state = case dict.get(params, "state") {
+    Ok(state) ->
+      case oidc_states.consume(app.db, state) {
+        Ok(state) -> Ok(state)
+        Error(e) -> {
+          logger.error_meta("Invalid launch state", e)
 
-    render_html(error_page("Required 'state' cookie not found"))
-  })
+          Error(render_html(error_page("Invalid or expired launch state")))
+        }
+      }
+    Error(_) -> {
+      logger.error("Required 'state' parameter not found")
 
-  case lightbulb.validate_launch(app.providers.data, params, session_state) {
-    Ok(claims) -> {
-      render_html(lti_html.launch_details(claims, app))
-    }
-    Error(e) -> {
-      logger.error_meta("Invalid launch", e)
-
-      render_html(error_page("Invalid launch: " <> string.inspect(e)))
+      Error(render_html(error_page("Required 'state' parameter not found")))
     }
   }
+
+  case session_state {
+    Ok(session_state) ->
+      case
+        lightbulb.validate_launch(app.providers.data, params, session_state)
+      {
+        Ok(claims) -> {
+          case launch_session_from_claims(claims) {
+            Ok(session) -> {
+              use <- set_cookie(
+                launch_session_cookie_name,
+                encode_launch_session(session),
+                cookie.Attributes(
+                  ..cookie.defaults(http.Https),
+                  same_site: Some(cookie.None),
+                  max_age: option.Some(60 * 60 * 8),
+                ),
+              )
+
+              render_html(lti_html.launch_details(claims, app))
+            }
+            Error(e) -> {
+              logger.error_meta("Failed to create launch session", e)
+
+              render_html(error_page("Failed to process launch claims"))
+            }
+          }
+        }
+        Error(e) -> {
+          logger.error_meta("Invalid launch", e)
+
+          render_html(error_page("Invalid launch: " <> string.inspect(e)))
+        }
+      }
+    Error(response) -> response
+  }
+}
+
+pub fn current_user(req: Request, _app: AppContext) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  use cookie_value <- require_cookie(
+    req,
+    launch_session_cookie_name,
+    or_else: fn() { unauthorized_response() },
+  )
+
+  case decode_launch_session(cookie_value) {
+    Ok(session) ->
+      dict.from_list([
+        #("sub", session.sub),
+        #("name", session.name),
+        #("email", session.email),
+        #("issuer", session.issuer),
+        #("audience", session.audience),
+        #("roles", string.join(session.roles, ", ")),
+        #("context_title", session.context_title),
+      ])
+      |> json.dict(function.identity, json.string)
+      |> json.to_string()
+      |> wisp.json_response(200)
+    Error(e) -> {
+      logger.error_meta("Invalid launch session cookie", e)
+      unauthorized_response()
+    }
+  }
+}
+
+pub fn app(req: Request, _app: AppContext) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  use _ <- require_cookie(req, launch_session_cookie_name, or_else: fn() {
+    render_html_status(error_page("Unauthorized"), 401)
+  })
+
+  render_html(lti_html.client_app())
+}
+
+fn unauthorized_response() -> Response {
+  dict.from_list([#("error", "Unauthorized")])
+  |> json.dict(function.identity, json.string)
+  |> json.to_string()
+  |> wisp.json_response(401)
+}
+
+fn launch_session_from_claims(
+  claims: Dict(String, Dynamic),
+) -> Result(LaunchSession, String) {
+  use sub <- result.try(required_string_claim(claims, "sub"))
+  use issuer <- result.try(required_string_claim(claims, "iss"))
+  use audience <- result.try(required_audience_claim(claims))
+  let name = optional_string_claim(claims, "name") |> result.unwrap(sub)
+  let email = optional_string_claim(claims, "email") |> result.unwrap("")
+  let roles = optional_roles_claim(claims)
+  let context_title = optional_context_title_claim(claims)
+
+  Ok(LaunchSession(
+    sub: sub,
+    name: name,
+    email: email,
+    issuer: issuer,
+    audience: audience,
+    roles: roles,
+    context_title: context_title,
+  ))
+}
+
+fn required_string_claim(
+  claims: Dict(String, Dynamic),
+  key: String,
+) -> Result(String, String) {
+  use claim <- result.try(
+    dict.get(claims, key)
+    |> result.replace_error("Missing required claim: " <> key),
+  )
+
+  decode.run(claim, decode.string)
+  |> result.replace_error("Invalid required claim: " <> key)
+}
+
+fn optional_string_claim(claims: Dict(String, Dynamic), key: String) {
+  case dict.get(claims, key) {
+    Ok(claim) ->
+      decode.run(claim, decode.string)
+      |> result.replace_error("Invalid optional claim: " <> key)
+    Error(_) -> Error("Missing optional claim: " <> key)
+  }
+}
+
+fn required_audience_claim(
+  claims: Dict(String, Dynamic),
+) -> Result(String, String) {
+  use claim <- result.try(
+    dict.get(claims, "aud")
+    |> result.replace_error("Missing required claim: aud"),
+  )
+
+  case decode.run(claim, decode.string) {
+    Ok(audience) -> Ok(audience)
+    Error(_) -> {
+      case
+        decode.run(claim, decode.list(decode.string))
+        |> result.replace_error("Invalid required claim: aud")
+      {
+        Ok([audience, ..]) -> Ok(audience)
+        Ok([]) -> Error("Invalid required claim: aud")
+        Error(e) -> Error(e)
+      }
+    }
+  }
+}
+
+fn optional_roles_claim(claims: Dict(String, Dynamic)) -> List(String) {
+  case dict.get(claims, roles_claim) {
+    Ok(claim) ->
+      decode.run(claim, decode.list(decode.string)) |> result.unwrap([])
+    Error(_) -> []
+  }
+}
+
+fn optional_context_title_claim(claims: Dict(String, Dynamic)) -> String {
+  case dict.get(claims, context_claim) {
+    Ok(claim) -> {
+      decode.run(claim, {
+        use title <- decode.field("title", decode.string)
+
+        decode.success(title)
+      })
+      |> result.unwrap("")
+    }
+    Error(_) -> ""
+  }
+}
+
+fn encode_launch_session(session: LaunchSession) -> String {
+  [
+    session.sub,
+    session.name,
+    session.email,
+    session.issuer,
+    session.audience,
+    string.join(session.roles, ","),
+    session.context_title,
+  ]
+  |> list.map(uri.percent_encode)
+  |> string.join("|")
+}
+
+fn decode_launch_session(value: String) -> Result(LaunchSession, String) {
+  case string.split(value, "|") {
+    [sub, name, email, issuer, audience, roles, context_title] -> {
+      use sub <- result.try(percent_decode("sub", sub))
+      use name <- result.try(percent_decode("name", name))
+      use email <- result.try(percent_decode("email", email))
+      use issuer <- result.try(percent_decode("issuer", issuer))
+      use audience <- result.try(percent_decode("audience", audience))
+      use raw_roles <- result.try(percent_decode("roles", roles))
+      use context_title <- result.try(percent_decode(
+        "context_title",
+        context_title,
+      ))
+
+      let roles =
+        raw_roles
+        |> string.split(",")
+        |> list.filter(fn(role) { role != "" })
+
+      Ok(LaunchSession(
+        sub: sub,
+        name: name,
+        email: email,
+        issuer: issuer,
+        audience: audience,
+        roles: roles,
+        context_title: context_title,
+      ))
+    }
+    _ -> Error("Invalid launch session cookie format")
+  }
+}
+
+fn percent_decode(label: String, value: String) -> Result(String, String) {
+  uri.percent_decode(value)
+  |> result.replace_error("Invalid encoded launch session field: " <> label)
 }
 
 fn all_params(

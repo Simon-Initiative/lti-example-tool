@@ -11,12 +11,27 @@ import lightbulb/services/nrps/membership.{type Membership}
 import lti_example_tool/app_context.{type AppContext}
 import lti_example_tool/database.{Record}
 import lti_example_tool/registrations
-import lti_example_tool_web/html/components.{Primary}
+import lti_example_tool_web/html/components.{Link, Primary}
 import lti_example_tool_web/html/components/forms.{Number, Text}
 import lti_example_tool_web/html/components/page.{page}
 import lti_example_tool_web/html/components/tables.{Column}
-import nakai/attr.{action, class, method, name, src, type_, value}
+import nakai/attr.{action, class, href, id, method, name, src, type_, value}
 import nakai/html.{type Node, div, form, h2, i, img, input, section, span}
+
+pub fn client_app() -> Node {
+  page("Launch Successful", [
+    div([class("mx-auto max-w-3xl w-full px-4 py-6")], [
+      div([id("root")], []),
+      html.Script(
+        [
+          type_("module"),
+          src("/static/client/client-app.js"),
+        ],
+        "",
+      ),
+    ]),
+  ])
+}
 
 pub fn launch_details(claims: Dict(String, Dynamic), app: AppContext) -> Node {
   page("Launch Successful", [
@@ -24,6 +39,12 @@ pub fn launch_details(claims: Dict(String, Dynamic), app: AppContext) -> Node {
       claims_section(claims),
       ags_section(app, claims),
       nrps_section(app, claims),
+      section([], [
+        heading("Client App"),
+        components.link(Primary, [href("/app"), class("inline-block my-2")], [
+          html.Text("Open Client App"),
+        ]),
+      ]),
     ]),
   ])
 }
