@@ -1,5 +1,5 @@
-import gleam/result
 import gleam/erlang/process
+import gleam/result
 import gleeunit/should
 import lightbulb/jwk
 import lti_example_tool/config
@@ -12,9 +12,7 @@ fn test_db() {
     config.database_url(),
   )
   |> result.try(fn(db_config) {
-    pog.start(
-      pog.Config(..db_config, database: db_config.database <> "_test"),
-    )
+    pog.start(pog.Config(..db_config, database: db_config.database <> "_test"))
     |> result.map(fn(started) { started.data })
     |> result.replace_error(Nil)
   })

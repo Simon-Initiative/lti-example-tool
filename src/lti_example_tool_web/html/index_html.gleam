@@ -1,4 +1,4 @@
-import lti_example_tool/html/components/page.{page}
+import lti_example_tool_web/html/components/page.{page}
 import nakai/attr.{Attr, class, href, id, role, tabindex, title}
 import nakai/html.{type Node, Text, a, a_text, code, div, h3, li, ol, p, span}
 

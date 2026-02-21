@@ -21,9 +21,9 @@ Request and runtime flow:
    - Opens DB connection pool.
    - Builds LTI data provider.
    - Starts Tailwind watcher in `Dev`.
-3. `src/lti_example_tool/router.gleam` dispatches requests by path segments.
-4. `src/lti_example_tool/web.gleam` applies middleware (logging, crash rescue, static files, HEAD handling).
-5. Controllers render HTML with Nakai (`src/lti_example_tool/html*`) or JSON for JWKS.
+3. `src/lti_example_tool_web/router.gleam` dispatches requests by path segments.
+4. `src/lti_example_tool_web/web.gleam` applies middleware (logging, crash rescue, static files, HEAD handling).
+5. Controllers render HTML with Nakai (`src/lti_example_tool_web/html*`) or JSON for JWKS.
 
 Design style:
 
@@ -34,10 +34,10 @@ Design style:
 ## Key Components
 
 - App startup: `src/lti_example_tool.gleam`, `src/lti_example_tool/application.gleam`
-- Request routing: `src/lti_example_tool/router.gleam`
-- Middleware + URL helpers: `src/lti_example_tool/web.gleam`
-- LTI endpoints: `src/lti_example_tool/controllers/lti_controller.gleam`
-- Registration CRUD: `src/lti_example_tool/controllers/registration_controller.gleam`
+- Request routing: `src/lti_example_tool_web/router.gleam`
+- Middleware + URL helpers: `src/lti_example_tool_web/web.gleam`
+- LTI endpoints: `src/lti_example_tool_web/controllers/lti_controller.gleam`
+- Registration CRUD: `src/lti_example_tool_web/controllers/registration_controller.gleam`
 - DB connection + transaction helpers: `src/lti_example_tool/database.gleam`
 - Migrations/seeding CLI: `src/lti_example_tool/database/migrate_and_seed.gleam`
 - Seeds loader (`seeds.yml`): `src/lti_example_tool/seeds.gleam`
@@ -142,9 +142,8 @@ Useful SQL checks:
 ## Repo Structure
 
 - `src/lti_example_tool.gleam`: main entrypoint
-- `src/lti_example_tool/`: app modules
-- `src/lti_example_tool/controllers/`: HTTP controllers
-- `src/lti_example_tool/html/`: HTML views/components
+- `src/lti_example_tool/`: domain, data, app setup, and core modules
+- `src/lti_example_tool_web/`: web layer modules (router, middleware, controllers, HTML views)
 - `src/lti_example_tool/database/`: DB tooling modules
 - `test/`: gleeunit tests
 - `priv/static/`: built static assets
@@ -195,10 +194,10 @@ When making changes:
 
 When adding a new endpoint:
 
-1. Add route match in `router.gleam`.
-2. Add controller action in `controllers/*`.
-3. Reuse middleware conventions in `web.gleam`.
-4. Add/update view templates in `html/` when returning HTML.
+1. Add route match in `src/lti_example_tool_web/router.gleam`.
+2. Add controller action in `src/lti_example_tool_web/controllers/*`.
+3. Reuse middleware conventions in `src/lti_example_tool_web/web.gleam`.
+4. Add/update view templates in `src/lti_example_tool_web/html/` when returning HTML.
 5. Add integration-style test via `wisp/simulate`.
 
 When diagnosing DB errors:
@@ -213,6 +212,6 @@ When diagnosing DB errors:
 - Project intro/setup: `README.md`
 - Dependency/runtime config: `gleam.toml`, `manifest.toml`
 - LTI flow implementation references:
-  - `src/lti_example_tool/controllers/lti_controller.gleam`
+  - `src/lti_example_tool_web/controllers/lti_controller.gleam`
   - `src/lti_example_tool/db_provider.gleam`
 - CI reference: `.github/workflows/test.yml`

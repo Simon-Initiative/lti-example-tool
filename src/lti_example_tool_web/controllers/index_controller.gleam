@@ -1,7 +1,7 @@
 import gleam/http.{Get}
-import lti_example_tool/html.{render_html} as _
-import lti_example_tool/html/index_html
-import lti_example_tool/web
+import lti_example_tool_web/html.{render_html} as _
+import lti_example_tool_web/html/index_html
+import lti_example_tool_web/web
 import wisp.{type Request, type Response}
 
 pub fn index(req: Request) -> Response {

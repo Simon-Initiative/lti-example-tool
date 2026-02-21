@@ -12,11 +12,11 @@ import lti_example_tool/app_context.{type AppContext}
 import lti_example_tool/database.{Record}
 import lti_example_tool/deployments
 import lti_example_tool/feature_flags
-import lti_example_tool/html.{render_html} as _
-import lti_example_tool/html/components/page.{error_page}
-import lti_example_tool/html/registrations_html
 import lti_example_tool/registrations
 import lti_example_tool/utils/logger
+import lti_example_tool_web/html.{render_html} as _
+import lti_example_tool_web/html/components/page.{error_page}
+import lti_example_tool_web/html/registrations_html
 import wisp.{type Request, type Response}
 
 pub fn resources(req: Request, app: AppContext) -> Response {
@@ -117,9 +117,7 @@ type EditRegistrationForm {
 
 fn registration_schema() -> form.Schema(EditRegistrationForm) {
   {
-    use name <- form.field("name", {
-      form.parse_string |> form.check_not_empty
-    })
+    use name <- form.field("name", { form.parse_string |> form.check_not_empty })
     use issuer <- form.field("issuer", {
       form.parse_string |> form.check_not_empty
     })

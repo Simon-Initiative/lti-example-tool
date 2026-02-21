@@ -1,7 +1,7 @@
 import gleam/erlang/process
 import lti_example_tool/application
-import lti_example_tool/router
 import lti_example_tool/utils/logger
+import lti_example_tool_web/router
 import mist
 import wisp
 import wisp/wisp_mist

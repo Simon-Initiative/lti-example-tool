@@ -1,8 +1,8 @@
 import lti_example_tool/app_context.{type AppContext}
-import lti_example_tool/controllers/index_controller
-import lti_example_tool/controllers/lti_controller
-import lti_example_tool/controllers/registration_controller
-import lti_example_tool/web
+import lti_example_tool_web/controllers/index_controller
+import lti_example_tool_web/controllers/lti_controller
+import lti_example_tool_web/controllers/registration_controller
+import lti_example_tool_web/web
 import wisp.{type Request, type Response}
 
 pub fn handle_request(req: Request, app: AppContext) -> Response {

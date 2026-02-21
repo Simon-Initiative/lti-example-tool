@@ -18,14 +18,14 @@ import lightbulb/services/ags/line_item.{LineItem}
 import lightbulb/services/ags/score.{Score}
 import lightbulb/services/nrps
 import lti_example_tool/app_context.{type AppContext}
-import lti_example_tool/cookies.{require_cookie, set_cookie}
 import lti_example_tool/database.{type Record, Record}
-import lti_example_tool/html.{render_html} as _
-import lti_example_tool/html/components/page.{error_page}
-import lti_example_tool/html/lti_html
 import lti_example_tool/jwks
 import lti_example_tool/registrations
 import lti_example_tool/utils/logger
+import lti_example_tool_web/cookies.{require_cookie, set_cookie}
+import lti_example_tool_web/html.{render_html} as _
+import lti_example_tool_web/html/components/page.{error_page}
+import lti_example_tool_web/html/lti_html
 import wisp.{type Request, type Response, redirect}
 
 pub fn oidc_login(req: Request, app: AppContext) -> Response {

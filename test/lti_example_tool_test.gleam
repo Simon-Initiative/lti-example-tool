@@ -15,7 +15,7 @@ import lti_example_tool/app_context.{AppContext}
 import lti_example_tool/config
 import lti_example_tool/env
 import lti_example_tool/feature_flags.{Registrations}
-import lti_example_tool/router
+import lti_example_tool_web/router
 import pog
 import wisp/simulate as testing
 
@@ -29,9 +29,7 @@ fn test_db() {
     config.database_url(),
   )
   |> result.try(fn(db_config) {
-    pog.start(
-      pog.Config(..db_config, database: db_config.database <> "_test"),
-    )
+    pog.start(pog.Config(..db_config, database: db_config.database <> "_test"))
     |> result.map(fn(started) { started.data })
     |> result.replace_error(Nil)
   })

@@ -6,10 +6,12 @@ import lightbulb/services/access_token.{type AccessToken, AccessToken}
 import lightbulb/services/ags
 import lightbulb/services/nrps
 import lti_example_tool/database.{type Record, Record}
-import lti_example_tool/html/components.{DangerLink, Link, Primary, Secondary}
-import lti_example_tool/html/components/forms.{Text}
-import lti_example_tool/html/components/page.{page}
-import lti_example_tool/html/components/tables.{Column}
+import lti_example_tool_web/html/components.{
+  DangerLink, Link, Primary, Secondary,
+}
+import lti_example_tool_web/html/components/forms.{Text}
+import lti_example_tool_web/html/components/page.{page}
+import lti_example_tool_web/html/components/tables.{Column}
 import nakai/attr.{action, class, href, method, type_}
 import nakai/html.{type Node, code, div, h2, p, pre}
 
@@ -118,12 +120,7 @@ pub fn edit(
     components.card([class("max-w-sm mx-auto")], [
       html.form([method("post"), action(submit_action.1)], [
         div([class("flex flex-col")], [
-          forms.labeled_input(
-            Text,
-            "Name",
-            "name",
-            form.field_value(f, "name"),
-          ),
+          forms.labeled_input(Text, "Name", "name", form.field_value(f, "name")),
           forms.labeled_input(
             Text,
             "Issuer",
