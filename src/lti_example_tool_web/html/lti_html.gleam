@@ -2,6 +2,8 @@ import gleam/dict.{type Dict}
 import gleam/dynamic.{type Dynamic}
 import gleam/dynamic/decode
 import gleam/int
+import gleam/json
+import gleam/list
 import gleam/option.{Some}
 import gleam/result
 import gleam/string
@@ -80,13 +82,75 @@ fn claims_section(claims: Dict(String, Dynamic)) -> Node {
           }),
           Column("Value", fn(record: #(String, Dynamic)) {
             let #(_key, value) = record
-            html.Text(string.inspect(value))
+
+            html.pre_text(
+              [class("whitespace-pre-wrap break-all font-mono text-xs")],
+              claim_value_json(value),
+            )
           }),
         ],
         dict.to_list(claims),
       ),
     ]),
   ])
+}
+
+fn claim_value_json(value: Dynamic) -> String {
+  value
+  |> dynamic_to_json()
+  |> json.to_string()
+}
+
+fn dynamic_to_json(value: Dynamic) -> json.Json {
+  case decode.run(value, decode.string) {
+    Ok(v) -> json.string(v)
+    Error(_) ->
+      case decode.run(value, decode.bool) {
+        Ok(v) -> json.bool(v)
+        Error(_) ->
+          case decode.run(value, decode.int) {
+            Ok(v) -> json.int(v)
+            Error(_) ->
+              case decode.run(value, decode.float) {
+                Ok(v) -> json.float(v)
+                Error(_) ->
+                  case decode.run(value, decode.list(decode.dynamic)) {
+                    Ok(values) -> json.array(values, dynamic_to_json)
+                    Error(_) ->
+                      case
+                        decode.run(
+                          value,
+                          decode.dict(decode.dynamic, decode.dynamic),
+                        )
+                      {
+                        Ok(values) ->
+                          json.object(
+                            list.map(dict.to_list(values), fn(entry) {
+                              let #(k, v) = entry
+                              #(dynamic_key_to_string(k), dynamic_to_json(v))
+                            }),
+                          )
+                        Error(_) ->
+                          case
+                            decode.run(value, decode.optional(decode.dynamic))
+                          {
+                            Ok(Some(v)) -> dynamic_to_json(v)
+                            Ok(_) -> json.null()
+                            Error(_) -> json.string(string.inspect(value))
+                          }
+                      }
+                  }
+              }
+          }
+      }
+  }
+}
+
+fn dynamic_key_to_string(key: Dynamic) -> String {
+  case decode.run(key, decode.string) {
+    Ok(value) -> value
+    Error(_) -> string.inspect(key)
+  }
 }
 
 fn decode_string(d: Dynamic) -> Result(String, String) {

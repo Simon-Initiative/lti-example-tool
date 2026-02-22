@@ -83,7 +83,7 @@ export function App() {
             <Detail label="User ID" value={state.user.sub} />
             <Detail label="Name" value={state.user.name} />
             <Detail label="Email" value={state.user.email} />
-            <Detail label="Roles" value={state.user.roles} />
+            <RolesDetail roles={state.user.roles} />
             <Detail label="Context" value={state.user.context_title} />
             <Detail label="Issuer" value={state.user.issuer} />
             <Detail label="Audience" value={state.user.audience} />
@@ -102,6 +102,30 @@ function Detail({ label, value }: { label: string; value: string }) {
       <dt className="font-medium text-gray-700">{label}</dt>
       <dd className="break-all text-gray-900">
         {trimmed.length > 0 ? trimmed : "None"}
+      </dd>
+    </div>
+  );
+}
+
+function RolesDetail({ roles }: { roles: string }) {
+  const items = roles
+    .split(",")
+    .map((role) => role.trim())
+    .filter((role) => role.length > 0);
+
+  return (
+    <div className="grid gap-1 border-b border-gray-100 pb-3 sm:grid-cols-[9rem_1fr] sm:gap-3">
+      <dt className="font-medium text-gray-700">Roles</dt>
+      <dd className="text-gray-900">
+        {items.length > 0 ? (
+          <ul className="list-disc pl-6">
+            {items.map((role) => (
+              <li key={role}>{role}</li>
+            ))}
+          </ul>
+        ) : (
+          "None"
+        )}
       </dd>
     </div>
   );
