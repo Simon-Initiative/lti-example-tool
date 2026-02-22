@@ -39,6 +39,33 @@ pub fn page(title page_title: String, content page_content: List(Node)) -> Node 
   ])
 }
 
+pub fn app_page(children: List(Node)) -> Node {
+  html.Html([lang("en")], [
+    html.Head([
+      meta([charset("utf-8")]),
+      meta([name("viewport"), content("width=device-width, initial-scale=1")]),
+      meta([name("description"), content("LTI Example Tool")]),
+      link([rel("stylesheet"), href("/static/app.css")]),
+      link([
+        rel("stylesheet"),
+        href(
+          "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/all.min.css",
+        ),
+        crossorigin("anonymous"),
+        attr.Attr("referrerpolicy", "no-referrer"),
+      ]),
+    ]),
+    html.Body(
+      [
+        class(
+          "bg-primary dark:bg-gray-900 dark:text-white flex flex-col h-screen",
+        ),
+      ],
+      children,
+    ),
+  ])
+}
+
 pub fn error_page(error_message: String) {
   page("An Error Occurred", [
     div([class("text-center")], [p_text([class("text-red-500")], error_message)]),

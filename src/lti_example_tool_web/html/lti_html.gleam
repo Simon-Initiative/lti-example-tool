@@ -13,13 +13,13 @@ import lti_example_tool/database.{Record}
 import lti_example_tool/registrations
 import lti_example_tool_web/html/components.{Primary}
 import lti_example_tool_web/html/components/forms.{Number, Text}
-import lti_example_tool_web/html/components/page.{page}
+import lti_example_tool_web/html/components/page.{app_page, page}
 import lti_example_tool_web/html/components/tables.{Column}
 import nakai/attr.{action, class, href, id, method, name, src, type_, value}
 import nakai/html.{type Node, div, form, h2, i, img, input, section, span}
 
 pub fn client_app(_app: AppContext) -> Node {
-  page("Launch Successful", [
+  app_page([
     div([class("mx-auto max-w-3xl w-full px-4 py-6")], [
       div([id("root")], []),
       html.Script(

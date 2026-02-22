@@ -66,11 +66,7 @@ export function App() {
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
       <section className="rounded-lg border border-gray-300 bg-white p-6 shadow-sm">
-        <h2 className="text-xl font-semibold text-gray-900">Launch Successful</h2>
-        <p className="mt-2 text-sm text-gray-600">
-          This view is rendered by a React client and authenticated with bearer
-          tokens.
-        </p>
+        <h2 className="text-xl font-semibold text-gray-900">User Details</h2>
 
         {state.kind === "loading" ? (
           <p className="mt-6 text-sm text-gray-600">Loading user details...</p>
