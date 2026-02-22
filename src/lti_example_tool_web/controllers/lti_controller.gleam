@@ -6,6 +6,7 @@ import gleam/dynamic/decode
 import gleam/function
 import gleam/http
 import gleam/http/cookie
+import gleam/http/request
 import gleam/json
 import gleam/list
 import gleam/option.{Some}
@@ -20,14 +21,18 @@ import lightbulb/services/ags
 import lightbulb/services/ags/line_item.{LineItem}
 import lightbulb/services/ags/score.{Score}
 import lightbulb/services/nrps
+import lti_example_tool/api_tokens
 import lti_example_tool/app_context.{type AppContext}
+import lti_example_tool/config
 import lti_example_tool/database.{type Record, Record}
 import lti_example_tool/jwks
 import lti_example_tool/oidc_states
 import lti_example_tool/registrations
+import lti_example_tool/tokens
+import lti_example_tool/users
 import lti_example_tool/utils/logger
-import lti_example_tool_web/cookies.{require_cookie, set_cookie}
-import lti_example_tool_web/html.{render_html, render_html_status} as _
+import lti_example_tool_web/cookies.{set_cookie}
+import lti_example_tool_web/html.{render_html} as _
 import lti_example_tool_web/html/components/page.{error_page}
 import lti_example_tool_web/html/lti_html
 import wisp.{type Request, type Response, redirect}
@@ -95,17 +100,55 @@ pub fn validate_launch(req: Request, app: AppContext) -> Response {
         Ok(claims) -> {
           case launch_session_from_claims(claims) {
             Ok(session) -> {
-              use <- set_cookie(
-                launch_session_cookie_name,
-                encode_launch_session(session),
-                cookie.Attributes(
-                  ..cookie.defaults(http.Https),
-                  same_site: Some(cookie.None),
-                  max_age: option.Some(60 * 60 * 8),
-                ),
-              )
+              case
+                users.upsert(
+                  app.db,
+                  users.User(
+                    sub: session.sub,
+                    name: session.name,
+                    email: session.email,
+                    issuer: session.issuer,
+                    audience: session.audience,
+                    roles: string.join(session.roles, ", "),
+                    context_title: session.context_title,
+                  ),
+                )
+              {
+                Ok(user_record) ->
+                  case
+                    tokens.create_bootstrap_token(
+                      app.db,
+                      user_record.id,
+                      config.bootstrap_token_ttl_seconds(),
+                    )
+                  {
+                    Ok(bootstrap_token) -> {
+                      use <- set_cookie(
+                        launch_session_cookie_name,
+                        encode_launch_session(session),
+                        cookie.Attributes(
+                          ..cookie.defaults(http.Https),
+                          same_site: Some(cookie.None),
+                          max_age: option.Some(60 * 60 * 8),
+                        ),
+                      )
 
-              render_html(lti_html.launch_details(claims, app))
+                      render_html(lti_html.launch_details(
+                        claims,
+                        app,
+                        bootstrap_token,
+                      ))
+                    }
+                    Error(e) -> {
+                      logger.error_meta("Failed to create bootstrap token", e)
+                      render_html(error_page("Failed to create bootstrap token"))
+                    }
+                  }
+                Error(e) -> {
+                  logger.error_meta("Failed to upsert user", e)
+                  render_html(error_page("Failed to persist launch user"))
+                }
+              }
             }
             Error(e) -> {
               logger.error_meta("Failed to create launch session", e)
@@ -124,41 +167,68 @@ pub fn validate_launch(req: Request, app: AppContext) -> Response {
   }
 }
 
-pub fn current_user(req: Request, _app: AppContext) -> Response {
+pub fn current_user(req: Request, app: AppContext) -> Response {
   use <- wisp.require_method(req, http.Get)
-  use cookie_value <- require_cookie(
-    req,
-    launch_session_cookie_name,
-    or_else: fn() { unauthorized_response() },
-  )
-
-  case decode_launch_session(cookie_value) {
-    Ok(session) ->
-      dict.from_list([
-        #("sub", session.sub),
-        #("name", session.name),
-        #("email", session.email),
-        #("issuer", session.issuer),
-        #("audience", session.audience),
-        #("roles", string.join(session.roles, ", ")),
-        #("context_title", session.context_title),
-      ])
-      |> json.dict(function.identity, json.string)
-      |> json.to_string()
-      |> wisp.json_response(200)
+  case require_bearer_token(req) {
+    Ok(access_token) ->
+      case api_tokens.verify_access_token(app.db, access_token) {
+        Ok(user_id) ->
+          case users.get(app.db, user_id) {
+            Ok(Record(data: user, ..)) ->
+              dict.from_list([
+                #("sub", user.sub),
+                #("name", user.name),
+                #("email", user.email),
+                #("issuer", user.issuer),
+                #("audience", user.audience),
+                #("roles", user.roles),
+                #("context_title", user.context_title),
+              ])
+              |> json.dict(function.identity, json.string)
+              |> json.to_string()
+              |> wisp.json_response(200)
+            Error(e) -> {
+              logger.error_meta("Authenticated user not found", e)
+              unauthorized_response()
+            }
+          }
+        Error(e) -> {
+          logger.error_meta("Invalid access token", e)
+          unauthorized_response()
+        }
+      }
     Error(e) -> {
-      logger.error_meta("Invalid launch session cookie", e)
+      logger.error_meta("Authorization header error", e)
       unauthorized_response()
     }
   }
 }
 
+pub fn token(req: Request, app: AppContext) -> Response {
+  use <- wisp.require_method(req, http.Post)
+  use formdata <- wisp.require_form(req)
+  let params = dict.from_list(formdata.values)
+
+  case dict.get(params, "grant_type") {
+    Ok("bootstrap") -> exchange_bootstrap_token(app, params)
+    Ok("refresh_token") -> refresh_access_token(app, params)
+    Ok(_) ->
+      dict.from_list([#("error", "Unsupported grant_type")])
+      |> json.dict(function.identity, json.string)
+      |> json.to_string()
+      |> wisp.json_response(400)
+    Error(_) ->
+      dict.from_list([
+        #("error", "Missing grant_type"),
+      ])
+      |> json.dict(function.identity, json.string)
+      |> json.to_string()
+      |> wisp.json_response(400)
+  }
+}
+
 pub fn app(req: Request, _app: AppContext) -> Response {
   use <- wisp.require_method(req, http.Get)
-  use _ <- require_cookie(req, launch_session_cookie_name, or_else: fn() {
-    render_html_status(error_page("Unauthorized"), 401)
-  })
-
   render_html(lti_html.client_app())
 }
 
@@ -167,6 +237,132 @@ fn unauthorized_response() -> Response {
   |> json.dict(function.identity, json.string)
   |> json.to_string()
   |> wisp.json_response(401)
+}
+
+fn exchange_bootstrap_token(
+  app: AppContext,
+  params: Dict(String, String),
+) -> Response {
+  case dict.get(params, "bootstrap_token") {
+    Ok(raw_bootstrap_token) -> {
+      case tokens.consume_bootstrap_token(app.db, raw_bootstrap_token) {
+        Ok(user_id) -> issue_tokens_response(app, user_id)
+        Error(e) -> {
+          logger.error_meta("Invalid bootstrap token", e)
+
+          dict.from_list([#("error", "Invalid bootstrap token")])
+          |> json.dict(function.identity, json.string)
+          |> json.to_string()
+          |> wisp.json_response(401)
+        }
+      }
+    }
+    Error(_) ->
+      dict.from_list([#("error", "Missing bootstrap_token")])
+      |> json.dict(function.identity, json.string)
+      |> json.to_string()
+      |> wisp.json_response(400)
+  }
+}
+
+fn refresh_access_token(
+  app: AppContext,
+  params: Dict(String, String),
+) -> Response {
+  case dict.get(params, "refresh_token") {
+    Ok(raw_refresh_token) -> {
+      case
+        tokens.rotate_refresh_token(
+          app.db,
+          raw_refresh_token,
+          config.refresh_token_ttl_seconds(),
+        )
+      {
+        Ok(#(user_id, refresh_token)) ->
+          issue_access_token_response(app, user_id, refresh_token)
+        Error(e) -> {
+          logger.error_meta("Invalid refresh token", e)
+
+          dict.from_list([#("error", "Invalid refresh token")])
+          |> json.dict(function.identity, json.string)
+          |> json.to_string()
+          |> wisp.json_response(401)
+        }
+      }
+    }
+    Error(_) ->
+      dict.from_list([#("error", "Missing refresh_token")])
+      |> json.dict(function.identity, json.string)
+      |> json.to_string()
+      |> wisp.json_response(400)
+  }
+}
+
+fn issue_tokens_response(app: AppContext, user_id: Int) -> Response {
+  case
+    tokens.create_refresh_token(
+      app.db,
+      user_id,
+      config.refresh_token_ttl_seconds(),
+    )
+  {
+    Ok(refresh_token) ->
+      issue_access_token_response(app, user_id, refresh_token)
+    Error(e) -> {
+      logger.error_meta("Failed to create refresh token", e)
+
+      dict.from_list([#("error", "Failed to create refresh token")])
+      |> json.dict(function.identity, json.string)
+      |> json.to_string()
+      |> wisp.json_response(500)
+    }
+  }
+}
+
+fn issue_access_token_response(
+  app: AppContext,
+  user_id: Int,
+  refresh_token: String,
+) -> Response {
+  case
+    api_tokens.issue_access_token(
+      app.db,
+      user_id,
+      config.access_token_ttl_seconds(),
+    )
+  {
+    Ok(access_token) ->
+      json.object([
+        #("access_token", json.string(access_token)),
+        #("token_type", json.string("Bearer")),
+        #("expires_in", json.int(config.access_token_ttl_seconds())),
+        #("refresh_token", json.string(refresh_token)),
+      ])
+      |> json.to_string()
+      |> wisp.json_response(200)
+    Error(e) -> {
+      logger.error_meta("Failed to issue access token", e)
+
+      dict.from_list([#("error", "Failed to issue access token")])
+      |> json.dict(function.identity, json.string)
+      |> json.to_string()
+      |> wisp.json_response(500)
+    }
+  }
+}
+
+fn require_bearer_token(req: Request) -> Result(String, String) {
+  case request.get_header(req, "authorization") {
+    Ok(header) -> parse_bearer_token(header)
+    Error(_) -> Error("Missing Authorization header")
+  }
+}
+
+fn parse_bearer_token(header: String) -> Result(String, String) {
+  case string.split_once(header, " ") {
+    Ok(#("Bearer", token)) if token != "" -> Ok(token)
+    _ -> Error("Invalid Authorization header")
+  }
 }
 
 fn launch_session_from_claims(
@@ -270,44 +466,6 @@ fn encode_launch_session(session: LaunchSession) -> String {
   ]
   |> list.map(uri.percent_encode)
   |> string.join("|")
-}
-
-fn decode_launch_session(value: String) -> Result(LaunchSession, String) {
-  case string.split(value, "|") {
-    [sub, name, email, issuer, audience, roles, context_title] -> {
-      use sub <- result.try(percent_decode("sub", sub))
-      use name <- result.try(percent_decode("name", name))
-      use email <- result.try(percent_decode("email", email))
-      use issuer <- result.try(percent_decode("issuer", issuer))
-      use audience <- result.try(percent_decode("audience", audience))
-      use raw_roles <- result.try(percent_decode("roles", roles))
-      use context_title <- result.try(percent_decode(
-        "context_title",
-        context_title,
-      ))
-
-      let roles =
-        raw_roles
-        |> string.split(",")
-        |> list.filter(fn(role) { role != "" })
-
-      Ok(LaunchSession(
-        sub: sub,
-        name: name,
-        email: email,
-        issuer: issuer,
-        audience: audience,
-        roles: roles,
-        context_title: context_title,
-      ))
-    }
-    _ -> Error("Invalid launch session cookie format")
-  }
-}
-
-fn percent_decode(label: String, value: String) -> Result(String, String) {
-  uri.percent_decode(value)
-  |> result.replace_error("Invalid encoded launch session field: " <> label)
 }
 
 fn all_params(

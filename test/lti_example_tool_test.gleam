@@ -179,5 +179,5 @@ pub fn get_app_unauthorized_test() {
   let response = router.handle_request(request, ctx)
 
   response.status
-  |> should.equal(401)
+  |> should.equal(200)
 }

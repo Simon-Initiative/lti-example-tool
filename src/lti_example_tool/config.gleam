@@ -77,3 +77,21 @@ pub fn env_var(name: String, default: String) {
     Error(_) -> default
   }
 }
+
+pub fn bootstrap_token_ttl_seconds() -> Int {
+  int_env_var("BOOTSTRAP_TOKEN_TTL_SECONDS", 300)
+}
+
+pub fn access_token_ttl_seconds() -> Int {
+  int_env_var("ACCESS_TOKEN_TTL_SECONDS", 900)
+}
+
+pub fn refresh_token_ttl_seconds() -> Int {
+  int_env_var("REFRESH_TOKEN_TTL_SECONDS", 86_400)
+}
+
+fn int_env_var(name: String, default: Int) -> Int {
+  envoy.get(name)
+  |> result.try(int.parse)
+  |> result.unwrap(default)
+}

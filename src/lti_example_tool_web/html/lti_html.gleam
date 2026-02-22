@@ -11,7 +11,7 @@ import lightbulb/services/nrps/membership.{type Membership}
 import lti_example_tool/app_context.{type AppContext}
 import lti_example_tool/database.{Record}
 import lti_example_tool/registrations
-import lti_example_tool_web/html/components.{Link, Primary}
+import lti_example_tool_web/html/components.{Primary}
 import lti_example_tool_web/html/components/forms.{Number, Text}
 import lti_example_tool_web/html/components/page.{page}
 import lti_example_tool_web/html/components/tables.{Column}
@@ -33,7 +33,11 @@ pub fn client_app() -> Node {
   ])
 }
 
-pub fn launch_details(claims: Dict(String, Dynamic), app: AppContext) -> Node {
+pub fn launch_details(
+  claims: Dict(String, Dynamic),
+  app: AppContext,
+  bootstrap_token: String,
+) -> Node {
   page("Launch Successful", [
     div([class("container mx-auto flex flex-col gap-12")], [
       claims_section(claims),
@@ -44,6 +48,12 @@ pub fn launch_details(claims: Dict(String, Dynamic), app: AppContext) -> Node {
         components.link(Primary, [href("/app"), class("inline-block my-2")], [
           html.Text("Open Client App"),
         ]),
+        html.Script(
+          [],
+          "sessionStorage.setItem('lti_bootstrap_token', '"
+            <> bootstrap_token
+            <> "');",
+        ),
       ]),
     ]),
   ])

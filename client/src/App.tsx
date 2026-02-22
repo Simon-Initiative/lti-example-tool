@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { authenticatedGet } from "./auth";
 
 type UserDetails = {
   sub: string;
@@ -20,21 +21,25 @@ export function App() {
 
   useEffect(() => {
     const controller = new AbortController();
+    let accessToken = "";
 
     async function loadUserDetails() {
       try {
-        const response = await fetch("/api/me", {
-          method: "GET",
-          credentials: "include",
-          signal: controller.signal,
-          headers: { Accept: "application/json" },
-        });
+        const result = await authenticatedGet(
+          "/api/me",
+          accessToken,
+          controller.signal,
+        );
+        accessToken = result.accessToken;
 
+        if (result.kind === "unauthorized") {
+          throw new Error("You are not authenticated for this client session.");
+        }
+
+        const response = result.response;
         if (!response.ok) {
           throw new Error(
-            response.status === 401
-              ? "You are not authenticated for this launch session."
-              : `Request failed with status ${response.status}`,
+            `Request failed with status ${response.status}`,
           );
         }
 
@@ -63,8 +68,8 @@ export function App() {
       <section className="rounded-lg border border-gray-300 bg-white p-6 shadow-sm">
         <h2 className="text-xl font-semibold text-gray-900">Launch Successful</h2>
         <p className="mt-2 text-sm text-gray-600">
-          This view is rendered by a React client and authenticated with launch
-          cookies.
+          This view is rendered by a React client and authenticated with bearer
+          tokens.
         </p>
 
         {state.kind === "loading" ? (

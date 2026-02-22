@@ -359,6 +359,77 @@ fn lti_example_tool_migrations() -> List(Migration) {
       },
     ),
     Migration(
+      name: "create_users_table",
+      up: fn(conn) {
+        let assert Ok(_) =
+          "
+          CREATE TABLE users (
+            id SERIAL PRIMARY KEY,
+            sub TEXT NOT NULL,
+            name TEXT NOT NULL DEFAULT '',
+            email TEXT NOT NULL DEFAULT '',
+            issuer TEXT NOT NULL,
+            audience TEXT NOT NULL,
+            roles TEXT NOT NULL DEFAULT '',
+            context_title TEXT NOT NULL DEFAULT '',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(sub, issuer, audience)
+          );
+        "
+          |> pog.query()
+          |> pog.returning(decode.dynamic)
+          |> pog.execute(conn)
+          |> result.map_error(string.inspect)
+      },
+      down: fn(conn) {
+        let assert Ok(_) =
+          "
+          DROP TABLE users;
+        "
+          |> pog.query()
+          |> pog.returning(decode.dynamic)
+          |> pog.execute(conn)
+          |> result.map_error(string.inspect)
+      },
+    ),
+    Migration(
+      name: "create_tokens_table",
+      up: fn(conn) {
+        let assert Ok(_) =
+          "
+          CREATE TABLE tokens (
+            id SERIAL PRIMARY KEY,
+            user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            token_type TEXT NOT NULL,
+            token_hash TEXT NOT NULL,
+            expires_at TIMESTAMP NOT NULL,
+            used_at TIMESTAMP,
+            revoked_at TIMESTAMP,
+            replaced_by_token_hash TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(token_hash),
+            CHECK (token_type IN ('bootstrap', 'refresh'))
+          );
+        "
+          |> pog.query()
+          |> pog.returning(decode.dynamic)
+          |> pog.execute(conn)
+          |> result.map_error(string.inspect)
+      },
+      down: fn(conn) {
+        let assert Ok(_) =
+          "
+          DROP TABLE tokens;
+        "
+          |> pog.query()
+          |> pog.returning(decode.dynamic)
+          |> pog.execute(conn)
+          |> result.map_error(string.inspect)
+      },
+    ),
+    Migration(
       name: "create_nonces_table",
       up: fn(conn) {
         let assert Ok(_) =

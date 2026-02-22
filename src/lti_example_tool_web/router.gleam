@@ -26,6 +26,8 @@ pub fn handle_request(req: Request, app: AppContext) -> Response {
 
     ["app"] -> lti_controller.app(req, app)
 
+    ["api", "auth", "token"] -> lti_controller.token(req, app)
+
     ["api", "me"] -> lti_controller.current_user(req, app)
 
     ["score"] -> lti_controller.send_score(req, app)
