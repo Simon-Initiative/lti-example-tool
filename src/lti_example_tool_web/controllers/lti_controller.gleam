@@ -227,9 +227,9 @@ pub fn token(req: Request, app: AppContext) -> Response {
   }
 }
 
-pub fn app(req: Request, _app: AppContext) -> Response {
+pub fn app(req: Request, app: AppContext) -> Response {
   use <- wisp.require_method(req, http.Get)
-  render_html(lti_html.client_app())
+  render_html(lti_html.client_app(app))
 }
 
 fn unauthorized_response() -> Response {
@@ -371,8 +371,8 @@ fn launch_session_from_claims(
   use sub <- result.try(required_string_claim(claims, "sub"))
   use issuer <- result.try(required_string_claim(claims, "iss"))
   use audience <- result.try(required_audience_claim(claims))
-  let name = optional_string_claim(claims, "name") |> result.unwrap(sub)
   let email = optional_string_claim(claims, "email") |> result.unwrap("")
+  let name = preferred_name_from_claims(claims)
   let roles = optional_roles_claim(claims)
   let context_title = optional_context_title_claim(claims)
 
@@ -385,6 +385,31 @@ fn launch_session_from_claims(
     roles: roles,
     context_title: context_title,
   ))
+}
+
+fn preferred_name_from_claims(claims: Dict(String, Dynamic)) -> String {
+  let name = optional_string_claim(claims, "name") |> result.unwrap("")
+  let given_name =
+    optional_string_claim(claims, "given_name") |> result.unwrap("")
+  let family_name =
+    optional_string_claim(claims, "family_name") |> result.unwrap("")
+  let combined_name = string.trim(given_name <> " " <> family_name)
+
+  first_non_empty([name, combined_name])
+}
+
+fn first_non_empty(values: List(String)) -> String {
+  case values {
+    [value, ..rest] -> {
+      let trimmed = string.trim(value)
+
+      case trimmed == "" {
+        True -> first_non_empty(rest)
+        False -> trimmed
+      }
+    }
+    [] -> ""
+  }
 }
 
 fn required_string_claim(

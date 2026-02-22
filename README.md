@@ -96,9 +96,9 @@ Interoperability) specification.
    ```sh
    cp seeds.example.yml seeds.yml
    ```
-7. Run the server and watch for changes:
+7. Start development mode (server reload, Tailwind watch, and client HMR):
    ```sh
-   watchexec --stop-signal=SIGKILL -r -e gleam gleam run
+   npm run dev
    ```
 8. Open the application in your browser:
    ```sh
@@ -111,8 +111,8 @@ Interoperability) specification.
 # Run the project
 gleam run
 
-# Run the project and watch for changes
-watchexec --stop-signal=SIGKILL -r -e gleam gleam run
+# Run the full dev stack (server reload + tailwind watch + client rebuild watch)
+npm run dev
 
 # Reset the database
 gleam run -m lti_example_tool/database/migrate reset
@@ -122,4 +122,17 @@ gleam run -m lti_example_tool/database/migrate up
 
 # Run the tests
 gleam test
+```
+
+For LMS launches over ngrok, expose the app server:
+
+Example:
+
+```sh
+# terminal 1: start ngrok for the app server
+ngrok http 8080
+
+# terminal 2: run dev
+export PUBLIC_URL="https://<app-tunnel>.ngrok.app"
+npm run dev
 ```

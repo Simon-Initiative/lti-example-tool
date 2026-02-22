@@ -18,7 +18,7 @@ import lti_example_tool_web/html/components/tables.{Column}
 import nakai/attr.{action, class, href, id, method, name, src, type_, value}
 import nakai/html.{type Node, div, form, h2, i, img, input, section, span}
 
-pub fn client_app() -> Node {
+pub fn client_app(_app: AppContext) -> Node {
   page("Launch Successful", [
     div([class("mx-auto max-w-3xl w-full px-4 py-6")], [
       div([id("root")], []),

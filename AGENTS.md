@@ -20,7 +20,7 @@ Request and runtime flow:
    - Ensures DB exists and is migrated/seeded.
    - Opens DB connection pool.
    - Builds LTI data provider.
-   - Starts Tailwind watcher in `Dev`.
+   - Builds app context for controllers/views.
 3. `src/lti_example_tool_web/router.gleam` dispatches requests by path segments.
 4. `src/lti_example_tool_web/web.gleam` applies middleware (logging, crash rescue, static files, HEAD handling).
 5. Controllers render HTML with Nakai (`src/lti_example_tool_web/html*`) or JSON for JWKS.
@@ -64,7 +64,7 @@ Design style:
 3. `gleam deps download`
 4. `cp seeds.example.yml seeds.yml` (edit values)
 5. `gleam run -m lti_example_tool/database/migrate setup`
-6. `watchexec --stop-signal=SIGKILL -r -e gleam gleam run`
+6. `npm run dev`
 7. Open `http://localhost:8080`
 
 ### Docker Setup
@@ -117,7 +117,8 @@ Patterns to preserve:
 ## Common Development Tasks
 
 - Run app: `gleam run`
-- Run app with local auto-reload: `watchexec --stop-signal=SIGKILL -r -e gleam gleam run`
+- Run full local dev stack (server reload + Tailwind watch + client rebuild watch): `npm run dev`
+- Run server-only auto-reload: `npm run server:dev`
 - Build app: `gleam build`
 - Build CSS once: `npm run tailwind:build`
 - Watch CSS: `npm run tailwind:watch`

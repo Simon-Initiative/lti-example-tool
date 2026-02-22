@@ -7,9 +7,7 @@ import lti_example_tool/config
 import lti_example_tool/database
 import lti_example_tool/database/migrate
 import lti_example_tool/db_provider
-import lti_example_tool/env.{Dev}
 import lti_example_tool/feature_flags
-import lti_example_tool/utils/devtools
 import pog
 import wisp
 
@@ -29,8 +27,6 @@ pub fn setup() -> AppContext {
   migrate.maybe_initialize_db(db_config)
 
   let assert Ok(lti_data_provider) = db_provider.data_provider(db)
-
-  env.exec(env, Dev, fn() { devtools.start() })
 
   let http_provider = httpc_provider.http_provider()
 

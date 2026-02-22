@@ -99,10 +99,14 @@ export function App() {
 }
 
 function Detail({ label, value }: { label: string; value: string }) {
+  const trimmed = value.trim();
+
   return (
     <div className="grid gap-1 border-b border-gray-100 pb-3 sm:grid-cols-[9rem_1fr] sm:gap-3">
       <dt className="font-medium text-gray-700">{label}</dt>
-      <dd className="break-all text-gray-900">{value.length > 0 ? value : "-"}</dd>
+      <dd className="break-all text-gray-900">
+        {trimmed.length > 0 ? trimmed : "None"}
+      </dd>
     </div>
   );
 }
