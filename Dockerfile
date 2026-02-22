@@ -39,6 +39,9 @@ FROM ghcr.io/gleam-lang/gleam:v${GLEAM_VERSION}-erlang-alpine
 
 WORKDIR /app
 RUN chown nobody /app
+RUN apk add --no-cache curl \
+  && curl -fsSL https://github.com/pressly/goose/releases/download/v3.24.3/goose_linux_x86_64 -o /usr/local/bin/goose \
+  && chmod +x /usr/local/bin/goose
 
 # Only copy the final release from the build stage
 COPY --from=builder --chown=nobody:root /app /app

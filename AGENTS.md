@@ -39,7 +39,7 @@ Design style:
 - LTI endpoints: `src/lti_example_tool_web/controllers/lti_controller.gleam`
 - Registration CRUD: `src/lti_example_tool_web/controllers/registration_controller.gleam`
 - DB connection + transaction helpers: `src/lti_example_tool/database.gleam`
-- Migrations/seeding CLI: `src/lti_example_tool/database/migrate_and_seed.gleam`
+- Migrations/seeding CLI: `src/lti_example_tool/database/migrate.gleam`
 - Seeds loader (`seeds.yml`): `src/lti_example_tool/seeds.gleam`
 - LTI data provider adapters: `src/lti_example_tool/db_provider.gleam`
 - Security data stores:
@@ -55,6 +55,7 @@ Design style:
 - Tool versions (from `.tool-versions`)
 - PostgreSQL
 - `watchexec` for local auto-reload
+- `goose` CLI for SQL migrations
 
 ### Local Setup
 
@@ -62,7 +63,7 @@ Design style:
 2. `npm install`
 3. `gleam deps download`
 4. `cp seeds.example.yml seeds.yml` (edit values)
-5. `gleam run -m lti_example_tool/database/migrate_and_seed setup`
+5. `gleam run -m lti_example_tool/database/migrate setup`
 6. `watchexec --stop-signal=SIGKILL -r -e gleam gleam run`
 7. Open `http://localhost:8080`
 
@@ -80,14 +81,17 @@ Default DB URL fallback:
 
 Core DB initialization behavior:
 
-- `application.setup()` calls `initialize_db()` on startup.
+- `application.setup()` calls `migrate.maybe_initialize_db()` on startup.
 - If DB does not exist, setup creates DB, runs migrations, seeds initial JWK + optional seeds file registrations.
 
 Migrations currently create:
 
-- `migrations`
+- `goose_db_version`
 - `registrations`
 - `deployments`
+- `oidc_states`
+- `users`
+- `tokens`
 - `nonces`
 - `jwks`
 - `active_jwk`
@@ -124,16 +128,16 @@ Patterns to preserve:
 
 ## Database Operations Quick Reference
 
-- Setup DB: `gleam run -m lti_example_tool/database/migrate_and_seed setup`
-- Migrate only: `gleam run -m lti_example_tool/database/migrate_and_seed migrate`
-- Seed only: `gleam run -m lti_example_tool/database/migrate_and_seed seed`
-- Reset DB: `gleam run -m lti_example_tool/database/migrate_and_seed reset`
-- Setup test DB: `gleam run -m lti_example_tool/database/migrate_and_seed test.setup`
-- Reset test DB: `gleam run -m lti_example_tool/database/migrate_and_seed test.reset`
+- Setup DB: `gleam run -m lti_example_tool/database/migrate setup`
+- Migrate only: `gleam run -m lti_example_tool/database/migrate up`
+- Seed only: `gleam run -m lti_example_tool/database/migrate seed`
+- Reset DB: `gleam run -m lti_example_tool/database/migrate reset`
+- Setup test DB: `gleam run -m lti_example_tool/database/migrate test.setup`
+- Reset test DB: `gleam run -m lti_example_tool/database/migrate test.reset`
 
 Useful SQL checks:
 
-- `SELECT * FROM migrations ORDER BY inserted_at DESC;`
+- `SELECT * FROM goose_db_version ORDER BY id DESC;`
 - `SELECT * FROM registrations;`
 - `SELECT * FROM deployments;`
 - `SELECT * FROM nonces;`
@@ -145,6 +149,7 @@ Useful SQL checks:
 - `src/lti_example_tool/`: domain, data, app setup, and core modules
 - `src/lti_example_tool_web/`: web layer modules (router, middleware, controllers, HTML views)
 - `src/lti_example_tool/database/`: DB tooling modules
+- `priv/repo/migrations/`: goose SQL migrations (`timestamp_name.sql`)
 - `test/`: gleeunit tests
 - `priv/static/`: built static assets
 - `app.css`: Tailwind input
@@ -178,7 +183,7 @@ Useful SQL checks:
 - Container image publish workflow pushes `ghcr.io/simon-initiative/lti-example-tool`.
 - Keep changes CI-safe by running locally:
   - `gleam build`
-  - `gleam run -m lti_example_tool/database/migrate_and_seed test.setup`
+  - `gleam run -m lti_example_tool/database/migrate test.setup`
   - `gleam test`
   - `gleam format --check src test`
 
@@ -187,7 +192,7 @@ Useful SQL checks:
 When making changes:
 
 1. Read the relevant controller + repository module first.
-2. If data model changes are required, add migration(s) in `migrate_and_seed.gleam`, then update repository decoders and tests.
+2. If data model changes are required, add migration SQL in `priv/repo/migrations`, then update repository decoders and tests.
 3. Keep AppContext wiring centralized in `application.gleam`.
 4. Prefer adding/adjusting tests in `test/` for new behavior.
 5. Verify with build + tests + formatting before finalizing.
@@ -203,8 +208,8 @@ When adding a new endpoint:
 When diagnosing DB errors:
 
 1. Confirm `DATABASE_URL`.
-2. Run `... migrate_and_seed setup` or `reset`.
-3. Check migrations table and key domain tables.
+2. Run `... database/migrate setup` or `reset`.
+3. Check `goose_db_version` and key domain tables.
 4. Validate seed YAML shape if using seed-driven registrations.
 
 ## Additional Resources

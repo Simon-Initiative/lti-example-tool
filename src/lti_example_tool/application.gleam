@@ -1,13 +1,16 @@
+import gleam/otp/actor
+import gleam/otp/static_supervisor.{type Supervisor} as supervisor
 import lightbulb/providers.{Providers}
 import lightbulb/providers/httpc_provider
 import lti_example_tool/app_context.{type AppContext, AppContext}
 import lti_example_tool/config
 import lti_example_tool/database
-import lti_example_tool/database/migrate_and_seed
+import lti_example_tool/database/migrate
 import lti_example_tool/db_provider
 import lti_example_tool/env.{Dev}
 import lti_example_tool/feature_flags
 import lti_example_tool/utils/devtools
+import pog
 import wisp
 
 pub fn setup() -> AppContext {
@@ -16,9 +19,14 @@ pub fn setup() -> AppContext {
   let static_directory = static_directory()
   let secret_key_base = config.secret_key_base(env)
 
-  migrate_and_seed.initialize_db()
+  let db_pool_name = "lti_example_tool_db_pool"
+  let assert Ok(db_config) = database.get_config(db_pool_name)
+  let assert Ok(_) = start_application_supervisor(db_config)
 
-  let assert Ok(db) = database.connect()
+  let db = pog.named_connection(db_config.pool_name)
+
+  // Ensure the database is initialized
+  migrate.maybe_initialize_db(db_config)
 
   let assert Ok(lti_data_provider) = db_provider.data_provider(db)
 
@@ -47,4 +55,20 @@ pub fn static_directory() -> String {
   let assert Ok(priv_directory) = wisp.priv_directory("lti_example_tool")
 
   priv_directory <> "/static"
+}
+
+fn start_application_supervisor(
+  db_config: pog.Config,
+) -> actor.StartResult(Supervisor) {
+  let db_supervisor =
+    db_config
+    |> pog.pool_size(15)
+    |> pog.supervised
+
+  supervisor.new(supervisor.RestForOne)
+  |> supervisor.add(db_supervisor)
+  // |> supervisor.add(other)
+  // |> supervisor.add(application)
+  // |> supervisor.add(children)
+  |> supervisor.start
 }

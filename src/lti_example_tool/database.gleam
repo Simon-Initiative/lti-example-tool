@@ -13,12 +13,15 @@ import pog.{type Connection}
 pub type Database =
   Connection
 
-pub fn connect() -> Result(Database, String) {
+pub fn get_config(pool_name: String) -> Result(pog.Config, String) {
   let url = config.database_url()
-  let pool_name = process.new_name("lti_example_tool_db")
-  use db_config <- result.try(
-    pog.url_config(pool_name, url) |> result.map_error(string.inspect),
-  )
+
+  process.new_name(pool_name)
+  |> pog.url_config(url)
+  |> result.map_error(string.inspect)
+}
+
+pub fn connect(db_config: pog.Config) -> Result(Database, String) {
   use started <- result.try(
     pog.start(db_config) |> result.map_error(string.inspect),
   )

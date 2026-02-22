@@ -64,6 +64,7 @@ Interoperability) specification.
 - [Node.js](https://nodejs.org/) - The JavaScript runtime used for tailwind styles. Can be installed via
   `asdf`.
 - [PostgreSQL](https://www.postgresql.org/) - The database used for this project.
+- [goose](https://github.com/pressly/goose) - SQL migration CLI used for database schema management.
 - [watchexec](https://github.com/watchexec/watchexec) - A tool to watch for file changes. Available
   via `brew install watchexec` on macOS.
 
@@ -89,7 +90,7 @@ Interoperability) specification.
    ```
 5. Initialize the database:
    ```sh
-   gleam run -m lti_example_tool/database/migrate_and_seed setup
+   gleam run -m lti_example_tool/database/migrate setup
    ```
 6. Copy the example seeds file and edit it for automatic platform configuration:
    ```sh
@@ -114,7 +115,10 @@ gleam run
 watchexec --stop-signal=SIGKILL -r -e gleam gleam run
 
 # Reset the database
-gleam run -m lti_example_tool/database/migrate_and_seed reset
+gleam run -m lti_example_tool/database/migrate reset
+
+# Run migrations without creating/dropping the database
+gleam run -m lti_example_tool/database/migrate up
 
 # Run the tests
 gleam test

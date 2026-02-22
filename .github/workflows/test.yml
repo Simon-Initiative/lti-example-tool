@@ -34,8 +34,14 @@ jobs:
           gleam-version: "1.14.0"
           rebar3-version: "3"
           elixir-version: "1.18.3"
+
+      - name: Install goose
+        run: |
+          curl -fsSL https://github.com/pressly/goose/releases/download/v3.24.3/goose_linux_x86_64 -o /usr/local/bin/goose
+          chmod +x /usr/local/bin/goose
+
       - run: gleam deps download
       - run: gleam build
-      - run: gleam run -m lti_example_tool/database/migrate_and_seed test.setup
+      - run: gleam run -m lti_example_tool/database/migrate test.setup
       - run: gleam test
       - run: gleam format --check src test
