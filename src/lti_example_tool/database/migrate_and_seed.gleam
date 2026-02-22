@@ -2,6 +2,7 @@ import argv
 import gleam/dynamic.{type Dynamic}
 import gleam/dynamic/decode
 import gleam/erlang/process
+import gleam/int
 import gleam/io
 import gleam/list.{Continue, Stop}
 import gleam/result
@@ -176,8 +177,34 @@ fn reset(db_config: pog.Config) {
 }
 
 fn open(db_config: pog.Config) -> Connection {
-  let assert Ok(started) = pog.start(db_config)
+  let assert Ok(started) = start_connection_with_retry(db_config, 20)
   started.data
+}
+
+fn start_connection_with_retry(db_config: pog.Config, attempts_left: Int) {
+  case pog.start(db_config) {
+    Ok(started) -> Ok(started)
+    Error(error) -> {
+      case attempts_left <= 1 {
+        True -> {
+          logger.error_meta(
+            "Failed to connect to database after retries",
+            error,
+          )
+          Error(error)
+        }
+        False -> {
+          logger.warn(
+            "Database is not ready yet. Retrying connection ("
+            <> int.to_string(attempts_left - 1)
+            <> " attempts remaining)...",
+          )
+          sleep(1000)
+          start_connection_with_retry(db_config, attempts_left - 1)
+        }
+      }
+    }
+  }
 }
 
 type Migration {

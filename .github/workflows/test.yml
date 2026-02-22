@@ -4,17 +4,29 @@ on:
   push:
     branches:
       - master
-      - main
   pull_request:
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: lti_example_tool_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d lti_example_tool_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/lti_example_tool_test
     steps:
       - uses: actions/checkout@v4
-
-      - name: 🗄 Start test database
-        run: docker compose up -d postgres
 
       - uses: erlef/setup-beam@v1
         with:
