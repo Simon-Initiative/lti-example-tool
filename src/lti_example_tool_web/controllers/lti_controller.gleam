@@ -7,6 +7,7 @@ import gleam/function
 import gleam/http
 import gleam/http/cookie
 import gleam/http/request
+import gleam/int
 import gleam/json
 import gleam/list
 import gleam/option.{None, Some}
@@ -539,6 +540,13 @@ pub fn send_score(req: Request, app: AppContext) -> Response {
       line_items_service_url,
     )) -> {
       let result = {
+        use _ <- result.try(
+          case score_given >. score_maximum {
+            True -> Error("score_given cannot be greater than score_maximum")
+            False -> Ok(Nil)
+          },
+        )
+
         use registration <- result.try(
           registrations.get(app.db, registration_id)
           |> result.replace_error("Error fetching registration")
@@ -550,8 +558,7 @@ pub fn send_score(req: Request, app: AppContext) -> Response {
             ags.lineitem_scope_url,
             ags.result_readonly_scope_url,
             ags.scores_scope_url,
-          ])
-          |> result.replace_error("Error fetching access token"),
+          ]),
         )
 
         let score =
@@ -575,12 +582,12 @@ pub fn send_score(req: Request, app: AppContext) -> Response {
             line_item_name,
             access_token,
           )
-          |> result.map_error(ags.ags_error_to_string),
+          |> result.map_error(ags_error_to_detailed_string),
         )
 
         // Post the score to the line item
         ags.post_score(app.providers.http, score, line_item, access_token)
-        |> result.map_error(ags.ags_error_to_string)
+        |> result.map_error(ags_error_to_detailed_string)
       }
 
       case result {
@@ -604,6 +611,13 @@ pub fn send_score(req: Request, app: AppContext) -> Response {
       line_item_service_url,
     )) -> {
       let result = {
+        use _ <- result.try(
+          case score_given >. score_maximum {
+            True -> Error("score_given cannot be greater than score_maximum")
+            False -> Ok(Nil)
+          },
+        )
+
         use registration <- result.try(
           registrations.get(app.db, registration_id)
           |> result.replace_error("Error fetching registration")
@@ -614,8 +628,7 @@ pub fn send_score(req: Request, app: AppContext) -> Response {
           access_token.fetch_access_token(app.providers, registration, [
             ags.result_readonly_scope_url,
             ags.scores_scope_url,
-          ])
-          |> result.replace_error("Error fetching access token"),
+          ]),
         )
 
         let score =
@@ -644,7 +657,7 @@ pub fn send_score(req: Request, app: AppContext) -> Response {
 
         // Post the score to the single line item
         ags.post_score(app.providers.http, score, line_item, access_token)
-        |> result.map_error(ags.ags_error_to_string)
+        |> result.map_error(ags_error_to_detailed_string)
       }
 
       case result {
@@ -663,6 +676,17 @@ pub fn send_score(req: Request, app: AppContext) -> Response {
 
       render_html(error_page("Invalid form data: " <> string.inspect(e)))
     }
+  }
+}
+
+fn ags_error_to_detailed_string(error: ags.AgsError) -> String {
+  case error {
+    ags.HttpUnexpectedStatus(status, body) ->
+      "unexpected AGS HTTP status: "
+      <> int.to_string(status)
+      <> " body: "
+      <> body
+    _ -> ags.ags_error_to_string(error)
   }
 }
 
@@ -782,8 +806,7 @@ pub fn fetch_memberships(req: Request, app: AppContext) -> Response {
     use access_token <- result.try(
       access_token.fetch_access_token(app.providers, registration, [
         nrps.context_membership_readonly_claim_url,
-      ])
-      |> result.replace_error("Error fetching access token"),
+      ]),
     )
 
     nrps.fetch_memberships(
