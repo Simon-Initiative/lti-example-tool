@@ -9,11 +9,11 @@ import gleam/http/cookie
 import gleam/http/request
 import gleam/json
 import gleam/list
-import gleam/option.{Some}
+import gleam/option.{None, Some}
 import gleam/result
 import gleam/string
 import gleam/uri
-import lightbulb
+import lightbulb/errors
 import lightbulb/jose
 import lightbulb/jwk.{type Jwk}
 import lightbulb/services/access_token
@@ -21,12 +21,12 @@ import lightbulb/services/ags
 import lightbulb/services/ags/line_item.{LineItem}
 import lightbulb/services/ags/score.{Score}
 import lightbulb/services/nrps
+import lightbulb/tool
 import lti_example_tool/api_tokens
 import lti_example_tool/app_context.{type AppContext}
 import lti_example_tool/config
 import lti_example_tool/database.{type Record, Record}
 import lti_example_tool/jwks
-import lti_example_tool/oidc_states
 import lti_example_tool/registrations
 import lti_example_tool/tokens
 import lti_example_tool/users
@@ -58,33 +58,19 @@ type LaunchSession {
 pub fn oidc_login(req: Request, app: AppContext) -> Response {
   use params <- all_params(req)
 
-  case lightbulb.oidc_login(app.providers.data, params) {
-    Ok(#(state, redirect_url)) -> {
-      case oidc_states.create(app.db, state) {
-        Ok(_) -> redirect(to: redirect_url)
-        Error(e) -> {
-          logger.error_meta("Failed to persist oidc state", e)
-
-          render_html(error_page("OIDC login failed: unable to persist state"))
-        }
-      }
-    }
-    Error(error) -> render_html(error_page("OIDC login failed: " <> error))
+  case tool.oidc_login(app.providers.data, params) {
+    Ok(#(_, redirect_url)) -> redirect(to: redirect_url)
+    Error(error) ->
+      render_html(error_page(
+        "OIDC login failed: " <> errors.core_error_to_string(error),
+      ))
   }
 }
 
 pub fn validate_launch(req: Request, app: AppContext) -> Response {
   use params <- all_params(req)
   let session_state = case dict.get(params, "state") {
-    Ok(state) ->
-      case oidc_states.consume(app.db, state) {
-        Ok(state) -> Ok(state)
-        Error(e) -> {
-          logger.error_meta("Invalid launch state", e)
-
-          Error(render_html(error_page("Invalid or expired launch state")))
-        }
-      }
+    Ok(state) -> Ok(state)
     Error(_) -> {
       logger.error("Required 'state' parameter not found")
 
@@ -94,9 +80,7 @@ pub fn validate_launch(req: Request, app: AppContext) -> Response {
 
   case session_state {
     Ok(session_state) ->
-      case
-        lightbulb.validate_launch(app.providers.data, params, session_state)
-      {
+      case tool.validate_launch(app.providers.data, params, session_state) {
         Ok(claims) -> {
           case launch_session_from_claims(claims) {
             Ok(session) -> {
@@ -160,7 +144,9 @@ pub fn validate_launch(req: Request, app: AppContext) -> Response {
         Error(e) -> {
           logger.error_meta("Invalid launch", e)
 
-          render_html(error_page("Invalid launch: " <> string.inspect(e)))
+          render_html(error_page(
+            "Invalid launch: " <> errors.core_error_to_string(e),
+          ))
         }
       }
     Error(response) -> response
@@ -580,17 +566,21 @@ pub fn send_score(req: Request, app: AppContext) -> Response {
           )
 
         // Ensure the line item exists by fetching the existing one or creating a new one
-        use line_item <- result.try(ags.fetch_or_create_line_item(
-          app.providers.http,
-          line_items_service_url,
-          resource_id,
-          fn() { 1.0 },
-          line_item_name,
-          access_token,
-        ))
+        use line_item <- result.try(
+          ags.fetch_or_create_line_item(
+            app.providers.http,
+            line_items_service_url,
+            resource_id,
+            fn() { 1.0 },
+            line_item_name,
+            access_token,
+          )
+          |> result.map_error(ags.ags_error_to_string),
+        )
 
         // Post the score to the line item
         ags.post_score(app.providers.http, score, line_item, access_token)
+        |> result.map_error(ags.ags_error_to_string)
       }
 
       case result {
@@ -645,10 +635,16 @@ pub fn send_score(req: Request, app: AppContext) -> Response {
             score_maximum: score_maximum,
             label: "",
             resource_id: resource_id,
+            resource_link_id: None,
+            tag: None,
+            start_date_time: None,
+            end_date_time: None,
+            grades_released: None,
           )
 
         // Post the score to the single line item
         ags.post_score(app.providers.http, score, line_item, access_token)
+        |> result.map_error(ags.ags_error_to_string)
       }
 
       case result {
@@ -795,6 +791,7 @@ pub fn fetch_memberships(req: Request, app: AppContext) -> Response {
       context_memberships_url,
       access_token,
     )
+    |> result.map_error(nrps.nrps_error_to_string)
   }
 
   case result {

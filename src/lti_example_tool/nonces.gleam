@@ -1,11 +1,11 @@
 import birl
 import birl/duration
 import gleam/dynamic/decode
+import gleam/order.{Gt}
 import gleam/result
+import gleam/time/timestamp
 import lightbulb/nonce.{type Nonce, Nonce}
-import lti_example_tool/database.{
-  type Database, one, rows, time_from_timestamp, timestamp_from_time,
-}
+import lti_example_tool/database.{type Database, one, rows, timestamp_from_time}
 import lti_example_tool/utils/logger
 import pog
 import youid/uuid
@@ -14,7 +14,7 @@ fn nonce_decoder() -> decode.Decoder(Nonce) {
   use nonce <- decode.field(0, decode.string)
   use expires_at <- decode.field(1, pog.timestamp_decoder())
 
-  decode.success(Nonce(nonce, time_from_timestamp(expires_at)))
+  decode.success(Nonce(nonce, expires_at))
 }
 
 pub fn all(db: Database) {
@@ -38,7 +38,7 @@ pub fn insert(db: Database, nonce: Nonce) {
   "INSERT INTO nonces (nonce, expires_at) VALUES ($1, $2)"
   |> pog.query()
   |> pog.parameter(pog.text(nonce.nonce))
-  |> pog.parameter(pog.timestamp(timestamp_from_time(nonce.expires_at)))
+  |> pog.parameter(pog.timestamp(nonce.expires_at))
   |> pog.execute(db)
 }
 
@@ -52,7 +52,10 @@ pub fn delete(db: Database, value: String) {
 /// Creates a nonce and stores it in the database
 pub fn create(db: Database) -> Result(Nonce, String) {
   let value = uuid.v4_string()
-  let expires_at = birl.now() |> birl.add(duration.minutes(5))
+  let expires_at =
+    birl.now()
+    |> birl.add(duration.minutes(5))
+    |> timestamp_from_time()
 
   let nonce = Nonce(value, expires_at)
 
@@ -70,7 +73,13 @@ pub fn create(db: Database) -> Result(Nonce, String) {
 /// to prevent reuse.
 pub fn validate_nonce(db: Database, nonce: String) -> Result(Nil, String) {
   use nonce <- result.try(
-    get(db, nonce) |> result.replace_error("Failed to get nonce"),
+    get(db, nonce) |> result.replace_error("Invalid nonce"),
+  )
+  use _ <- result.try(
+    case timestamp.compare(nonce.expires_at, timestamp.system_time()) {
+      Gt -> Ok(Nil)
+      _ -> Error("Expired nonce")
+    },
   )
 
   // remove the nonce from the database so it can't be reused

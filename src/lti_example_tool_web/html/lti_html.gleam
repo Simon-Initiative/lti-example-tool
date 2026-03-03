@@ -4,7 +4,7 @@ import gleam/dynamic/decode
 import gleam/int
 import gleam/json
 import gleam/list
-import gleam/option.{Some}
+import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import lightbulb/services/ags.{AgsClaim}
@@ -323,9 +323,10 @@ fn form_for_lineitems(
 
 pub fn nrps_section(app: AppContext, claims: Dict(String, Dynamic)) -> Node {
   let form = {
-    use context_memberships_url <- result.try(nrps.get_membership_service_url(
-      claims,
-    ))
+    use context_memberships_url <- result.try(
+      nrps.get_membership_service_url(claims)
+      |> result.map_error(nrps.nrps_error_to_string),
+    )
 
     use issuer <- result.try(
       dict.get(claims, "iss")
@@ -406,26 +407,51 @@ pub fn memberships(memberships: List(Membership)) -> Node {
           [],
           [
             Column("", fn(m: Membership) {
-              img([
-                src(m.picture),
-                class(
-                  "w-10 min-w-10 h-10 rounded-full object-cover border-2 border-gray-100",
-                ),
-              ])
+              case m.picture {
+                Some(url) ->
+                  img([
+                    src(url),
+                    class(
+                      "w-10 min-w-10 h-10 rounded-full object-cover border-2 border-gray-100",
+                    ),
+                  ])
+                None ->
+                  div(
+                    [
+                      class(
+                        "w-10 min-w-10 h-10 rounded-full border-2 border-gray-100 bg-gray-100",
+                      ),
+                    ],
+                    [],
+                  )
+              }
             }),
-            Column("Name", fn(m: Membership) { html.Text(m.name) }),
+            Column("Name", fn(m: Membership) {
+              html.Text(option_string(m.name))
+            }),
             Column("User ID", fn(m: Membership) {
               span([class("font-mono")], [html.Text(m.user_id)])
             }),
-            Column("Status", fn(m: Membership) { html.Text(m.status) }),
+            Column("Status", fn(m: Membership) {
+              html.Text(option_string(m.status))
+            }),
             Column("Roles", fn(m: Membership) {
               html.Text(string.inspect(m.roles))
             }),
-            Column("Email", fn(m: Membership) { html.Text(m.email) }),
+            Column("Email", fn(m: Membership) {
+              html.Text(option_string(m.email))
+            }),
           ],
           memberships,
         ),
       ]),
     ]),
   ])
+}
+
+fn option_string(value: Option(String)) -> String {
+  case value {
+    Some(v) -> v
+    None -> "-"
+  }
 }

@@ -33,7 +33,7 @@ jsx = ">= 3.1.0 and < 4.0.0"
 nakai = ">= 1.1.1 and < 2.0.0"
 formal = ">= 3.0.0 and < 4.0.0"
 #lightbulb = ">= 1.0.0 and < 2.0.0"
-lightbulb = { git = "https://github.com/Simon-Initiative/lightbulb.git", ref = "master" }
+lightbulb = { git = "https://github.com/Simon-Initiative/lightbulb.git", ref = "complete-lti-spec" }
 youid = ">= 1.5.1 and < 2.0.0"
 shellout = ">= 1.8.0 and < 2.0.0"
 
