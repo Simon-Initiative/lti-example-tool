@@ -1,4 +1,3 @@
-import birl
 import formal/form
 import gleam/dict.{type Dict}
 import gleam/dynamic.{type Dynamic}
@@ -13,6 +12,8 @@ import gleam/list
 import gleam/option.{None, Some}
 import gleam/result
 import gleam/string
+import gleam/time/calendar
+import gleam/time/timestamp
 import gleam/uri
 import lightbulb/errors
 import lightbulb/jose
@@ -540,12 +541,10 @@ pub fn send_score(req: Request, app: AppContext) -> Response {
       line_items_service_url,
     )) -> {
       let result = {
-        use _ <- result.try(
-          case score_given >. score_maximum {
-            True -> Error("score_given cannot be greater than score_maximum")
-            False -> Ok(Nil)
-          },
-        )
+        use _ <- result.try(case score_given >. score_maximum {
+          True -> Error("score_given cannot be greater than score_maximum")
+          False -> Ok(Nil)
+        })
 
         use registration <- result.try(
           registrations.get(app.db, registration_id)
@@ -565,7 +564,8 @@ pub fn send_score(req: Request, app: AppContext) -> Response {
           Score(
             score_given: score_given,
             score_maximum: score_maximum,
-            timestamp: birl.now() |> birl.to_iso8601(),
+            timestamp: timestamp.system_time()
+              |> timestamp.to_rfc3339(calendar.utc_offset),
             user_id: user_id,
             comment: comment,
             activity_progress: "Completed",
@@ -611,12 +611,10 @@ pub fn send_score(req: Request, app: AppContext) -> Response {
       line_item_service_url,
     )) -> {
       let result = {
-        use _ <- result.try(
-          case score_given >. score_maximum {
-            True -> Error("score_given cannot be greater than score_maximum")
-            False -> Ok(Nil)
-          },
-        )
+        use _ <- result.try(case score_given >. score_maximum {
+          True -> Error("score_given cannot be greater than score_maximum")
+          False -> Ok(Nil)
+        })
 
         use registration <- result.try(
           registrations.get(app.db, registration_id)
@@ -635,7 +633,8 @@ pub fn send_score(req: Request, app: AppContext) -> Response {
           Score(
             score_given: score_given,
             score_maximum: score_maximum,
-            timestamp: birl.now() |> birl.to_iso8601(),
+            timestamp: timestamp.system_time()
+              |> timestamp.to_rfc3339(calendar.utc_offset),
             user_id: user_id,
             comment: comment,
             activity_progress: "Completed",

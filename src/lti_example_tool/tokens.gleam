@@ -1,12 +1,11 @@
-import birl
-import birl/duration
 import gleam/bit_array
 import gleam/crypto
 import gleam/dynamic/decode
 import gleam/result
+import gleam/time/duration
+import gleam/time/timestamp
 import lti_example_tool/database.{
-  type Database, DatabaseError, QueryError, one, timestamp_from_time,
-  transaction,
+  type Database, DatabaseError, QueryError, one, transaction,
 }
 import lti_example_tool/utils/logger
 import pog
@@ -59,14 +58,16 @@ fn create_token(
   ttl_seconds: Int,
 ) -> Result(String, String) {
   let raw = uuid.v4_string()
-  let expires_at = birl.now() |> birl.add(duration.seconds(ttl_seconds))
+  let expires_at =
+    timestamp.system_time()
+    |> timestamp.add(duration.seconds(ttl_seconds))
 
   "INSERT INTO tokens (user_id, token_type, token_hash, expires_at) VALUES ($1, $2, $3, $4)"
   |> pog.query()
   |> pog.parameter(pog.int(user_id))
   |> pog.parameter(pog.text(token_type_label(token_type)))
   |> pog.parameter(pog.text(hash_token(raw)))
-  |> pog.parameter(pog.timestamp(timestamp_from_time(expires_at)))
+  |> pog.parameter(pog.timestamp(expires_at))
   |> pog.execute(db)
   |> result.map(fn(_) { raw })
   |> result.map_error(fn(e) {
@@ -90,7 +91,7 @@ pub fn consume_bootstrap_token(
    RETURNING user_id"
   |> pog.query()
   |> pog.parameter(pog.text(hash_token(raw_token)))
-  |> pog.parameter(pog.timestamp(timestamp_from_time(birl.now())))
+  |> pog.parameter(pog.timestamp(timestamp.system_time()))
   |> pog.returning(decode.at([0], decode.int))
   |> pog.execute(db)
   |> one()
@@ -105,8 +106,10 @@ pub fn rotate_refresh_token(
   let previous_hash = hash_token(raw_token)
   let next_raw = uuid.v4_string()
   let next_hash = hash_token(next_raw)
-  let expires_at = birl.now() |> birl.add(duration.seconds(ttl_seconds))
-  let now = timestamp_from_time(birl.now())
+  let expires_at =
+    timestamp.system_time()
+    |> timestamp.add(duration.seconds(ttl_seconds))
+  let now = timestamp.system_time()
 
   transaction(db, fn(db) {
     use #(token_id, user_id) <- result.try(
@@ -142,7 +145,7 @@ pub fn rotate_refresh_token(
     |> pog.query()
     |> pog.parameter(pog.int(user_id))
     |> pog.parameter(pog.text(next_hash))
-    |> pog.parameter(pog.timestamp(timestamp_from_time(expires_at)))
+    |> pog.parameter(pog.timestamp(expires_at))
     |> pog.execute(db)
     |> result.map(fn(_) { #(user_id, next_raw) })
     |> result.map_error(QueryError)

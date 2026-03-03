@@ -1,4 +1,3 @@
-import birl.{type Time}
 import gleam/dynamic/decode
 import gleam/erlang/process
 import gleam/int
@@ -115,12 +114,4 @@ pub fn humanize_error(error: DatabaseError) {
       "Expected a single row but got " <> int.to_string(num_rows) <> " rows"
     TransactionError(e) -> "Transaction error: " <> string.inspect(e)
   }
-}
-
-pub fn timestamp_from_time(time: Time) -> timestamp.Timestamp {
-  birl.to_timestamp(time)
-}
-
-pub fn time_from_timestamp(timestamp: timestamp.Timestamp) -> Time {
-  birl.from_timestamp(timestamp)
 }

@@ -45,45 +45,94 @@ pub fn index(url: String) -> Node {
         div([class("ml-6 mb-4 space-y-1")], [
           div([], [
             span([class("font-bold")], [Text("Name: ")]),
-            code([class("bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white px-2 py-1 rounded")], [
-              Text("Platform Name"),
-            ]),
+            code(
+              [
+                class(
+                  "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white px-2 py-1 rounded",
+                ),
+              ],
+              [
+                Text("Platform Name"),
+              ],
+            ),
           ]),
           div([], [
             span([class("font-bold")], [Text("Issuer: ")]),
-            code([class("bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white px-2 py-1 rounded")], [
-              Text("https://platform.example.edu"),
-            ]),
+            code(
+              [
+                class(
+                  "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white px-2 py-1 rounded",
+                ),
+              ],
+              [
+                Text("https://platform.example.edu"),
+              ],
+            ),
           ]),
           div([], [
             span([class("font-bold")], [Text("Client ID: ")]),
-            code([class("bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white px-2 py-1 rounded")], [
-              Text("EXAMPLE_CLIENT_ID"),
-            ]),
+            code(
+              [
+                class(
+                  "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white px-2 py-1 rounded",
+                ),
+              ],
+              [
+                Text("EXAMPLE_CLIENT_ID"),
+              ],
+            ),
           ]),
           div([], [
             span([class("font-bold")], [Text("Auth Endpoint: ")]),
-            code([class("bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white px-2 py-1 rounded")], [
-              Text("https://platform.example.edu/lti/authorize"),
-            ]),
+            code(
+              [
+                class(
+                  "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white px-2 py-1 rounded",
+                ),
+              ],
+              [
+                Text("https://platform.example.edu/lti/authorize"),
+              ],
+            ),
           ]),
           div([], [
             span([class("font-bold")], [Text("Access Token Endpoint: ")]),
-            code([class("bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white px-2 py-1 rounded")], [
-              Text("https://platform.example.edu/auth/token"),
-            ]),
+            code(
+              [
+                class(
+                  "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white px-2 py-1 rounded",
+                ),
+              ],
+              [
+                Text("https://platform.example.edu/auth/token"),
+              ],
+            ),
           ]),
           div([], [
             span([class("font-bold")], [Text("Keyset URL: ")]),
-            code([class("bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white px-2 py-1 rounded")], [
-              Text("https://platform.example.edu/.well-known/jwks.json"),
-            ]),
+            code(
+              [
+                class(
+                  "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white px-2 py-1 rounded",
+                ),
+              ],
+              [
+                Text("https://platform.example.edu/.well-known/jwks.json"),
+              ],
+            ),
           ]),
           div([], [
             span([class("font-bold")], [Text("Deployment ID: ")]),
-            code([class("bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white px-2 py-1 rounded")], [
-              Text("some-deployment-id"),
-            ]),
+            code(
+              [
+                class(
+                  "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white px-2 py-1 rounded",
+                ),
+              ],
+              [
+                Text("some-deployment-id"),
+              ],
+            ),
           ]),
         ]),
         li([], [
@@ -117,12 +166,15 @@ pub fn index(url: String) -> Node {
 
 fn copyable_code(id_: String, value: String) -> Node {
   div([class("inline-flex items-center group")], [
-    code([
-      id(id_),
-      class(
-        "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white px-2 py-1 rounded",
-      ),
-    ], [Text(value)]),
+    code(
+      [
+        id(id_),
+        class(
+          "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white px-2 py-1 rounded",
+        ),
+      ],
+      [Text(value)],
+    ),
     span(
       [
         Attr(

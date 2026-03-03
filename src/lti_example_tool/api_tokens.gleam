@@ -1,10 +1,10 @@
-import birl
-import birl/duration
 import gleam/dict
 import gleam/dynamic
 import gleam/dynamic/decode
 import gleam/int
 import gleam/result
+import gleam/time/duration
+import gleam/time/timestamp
 import lightbulb/jose
 import lightbulb/jwk
 import lti_example_tool/database.{type Database}
@@ -27,9 +27,12 @@ pub fn issue_access_token(
   )
 
   let #(_, jwk_map) = active_jwk |> jwk.to_map()
-  let now = birl.now() |> birl.to_unix()
+  let now =
+    timestamp.system_time() |> timestamp.to_unix_seconds_and_nanoseconds()
   let exp =
-    birl.now() |> birl.add(duration.seconds(ttl_seconds)) |> birl.to_unix()
+    timestamp.system_time()
+    |> timestamp.add(duration.seconds(ttl_seconds))
+    |> timestamp.to_unix_seconds_and_nanoseconds()
   let jti = uuid.v4_string()
 
   let claims =
@@ -38,8 +41,8 @@ pub fn issue_access_token(
       #("aud", dynamic.string(audience)),
       #("sub", dynamic.string(int.to_string(user_id))),
       #("uid", dynamic.int(user_id)),
-      #("iat", dynamic.int(now)),
-      #("exp", dynamic.int(exp)),
+      #("iat", dynamic.int(now.0)),
+      #("exp", dynamic.int(exp.0)),
       #("jti", dynamic.string(jti)),
       #("typ", dynamic.string("access")),
     ])
@@ -91,7 +94,8 @@ fn extract_kid(token: String) -> Result(String, String) {
 
 fn validate_claims(jwt: jose.JoseJwt) -> Result(Int, String) {
   let jose.JoseJwt(claims:) = jwt
-  let now = birl.now() |> birl.to_unix()
+  let now =
+    timestamp.system_time() |> timestamp.to_unix_seconds_and_nanoseconds()
 
   use uid <- result.try(required_int_claim(claims, "uid"))
   use exp <- result.try(required_int_claim(claims, "exp"))
@@ -108,7 +112,7 @@ fn validate_claims(jwt: jose.JoseJwt) -> Result(Int, String) {
           case token_type == "access" {
             False -> Error("Invalid access token type")
             True ->
-              case exp > now {
+              case exp > now.0 {
                 True -> Ok(uid)
                 False -> Error("Access token expired")
               }

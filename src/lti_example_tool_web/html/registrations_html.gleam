@@ -189,33 +189,65 @@ pub fn access_token(
         h2([class("my-4 text-lg font-bold")], [html.Text("Issuer")]),
         p([class("")], [html.Text(registration.issuer)]),
         h2([class("my-4 text-lg font-bold")], [html.Text("Token")]),
-        pre([class("p-6 bg-gray-100 dark:bg-gray-800 rounded-lg break-words overflow-auto")], [
-          code([class("text-sm break-words text-gray-900 dark:text-white")], [html.Text(token)]),
-        ]),
+        pre(
+          [
+            class(
+              "p-6 bg-gray-100 dark:bg-gray-800 rounded-lg break-words overflow-auto",
+            ),
+          ],
+          [
+            code([class("text-sm break-words text-gray-900 dark:text-white")], [
+              html.Text(token),
+            ]),
+          ],
+        ),
         h2([class("my-4 text-lg font-bold mt-4")], [html.Text("Scopes")]),
-        pre([class("p-6 bg-gray-100 dark:bg-gray-800 rounded-lg break-words overflow-auto")], [
-          code([class("text-sm break-words text-gray-900 dark:text-white")], [
-            html.Text(string.join(
-              [
-                ags.lineitem_scope_url,
-                ags.result_readonly_scope_url,
-                ags.scores_scope_url,
-                nrps.context_membership_readonly_claim_url,
-              ],
-              "\n",
-            )),
-          ]),
-        ]),
+        pre(
+          [
+            class(
+              "p-6 bg-gray-100 dark:bg-gray-800 rounded-lg break-words overflow-auto",
+            ),
+          ],
+          [
+            code([class("text-sm break-words text-gray-900 dark:text-white")], [
+              html.Text(string.join(
+                [
+                  ags.lineitem_scope_url,
+                  ags.result_readonly_scope_url,
+                  ags.scores_scope_url,
+                  nrps.context_membership_readonly_claim_url,
+                ],
+                "\n",
+              )),
+            ]),
+          ],
+        ),
         h2([class("my-4 text-lg font-bold")], [html.Text("Token Type")]),
-        pre([class("p-6 bg-gray-100 dark:bg-gray-800 rounded-lg break-words overflow-auto")], [
-          code([class("text-sm break-words text-gray-900 dark:text-white")], [html.Text(token_type)]),
-        ]),
+        pre(
+          [
+            class(
+              "p-6 bg-gray-100 dark:bg-gray-800 rounded-lg break-words overflow-auto",
+            ),
+          ],
+          [
+            code([class("text-sm break-words text-gray-900 dark:text-white")], [
+              html.Text(token_type),
+            ]),
+          ],
+        ),
         h2([class("my-4 text-lg font-bold")], [html.Text("Expires In")]),
-        pre([class("p-6 bg-gray-100 dark:bg-gray-800 rounded-lg break-words overflow-auto")], [
-          code([class("text-sm break-words text-gray-900 dark:text-white")], [
-            html.Text(int.to_string(expires_in)),
-          ]),
-        ]),
+        pre(
+          [
+            class(
+              "p-6 bg-gray-100 dark:bg-gray-800 rounded-lg break-words overflow-auto",
+            ),
+          ],
+          [
+            code([class("text-sm break-words text-gray-900 dark:text-white")], [
+              html.Text(int.to_string(expires_in)),
+            ]),
+          ],
+        ),
       ]),
       div([class("flex flex-row space-x-4")], [
         components.link(Link, [href("/registrations/" <> registration_id)], [

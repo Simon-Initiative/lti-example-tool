@@ -1,11 +1,10 @@
-import birl
-import birl/duration
 import gleam/dynamic/decode
 import gleam/order.{Gt}
 import gleam/result
+import gleam/time/duration
 import gleam/time/timestamp
 import lightbulb/nonce.{type Nonce, Nonce}
-import lti_example_tool/database.{type Database, one, rows, timestamp_from_time}
+import lti_example_tool/database.{type Database, one, rows}
 import lti_example_tool/utils/logger
 import pog
 import youid/uuid
@@ -53,9 +52,8 @@ pub fn delete(db: Database, value: String) {
 pub fn create(db: Database) -> Result(Nonce, String) {
   let value = uuid.v4_string()
   let expires_at =
-    birl.now()
-    |> birl.add(duration.minutes(5))
-    |> timestamp_from_time()
+    timestamp.system_time()
+    |> timestamp.add(duration.minutes(5))
 
   let nonce = Nonce(value, expires_at)
 
@@ -93,6 +91,6 @@ pub fn validate_nonce(db: Database, nonce: String) -> Result(Nil, String) {
 pub fn cleanup_expired_nonces(db: Database) {
   "DELETE FROM nonces WHERE expires_at < $1"
   |> pog.query()
-  |> pog.parameter(pog.timestamp(timestamp_from_time(birl.now())))
+  |> pog.parameter(pog.timestamp(timestamp.system_time()))
   |> pog.execute(db)
 }
