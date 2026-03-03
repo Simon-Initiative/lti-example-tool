@@ -15,11 +15,13 @@ import lti_example_tool/app_context.{AppContext}
 import lti_example_tool/config
 import lti_example_tool/env
 import lti_example_tool/feature_flags.{Registrations}
+import lti_example_tool/utils/logger
 import lti_example_tool_web/router
 import pog
 import wisp/simulate as testing
 
 pub fn main() {
+  logger.configure_for_tests()
   gleeunit.main()
 }
 

@@ -7,7 +7,7 @@ import wisp
 import wisp/wisp_mist
 
 pub fn main() {
-  logger.configure_backend()
+  logger.configure()
   wisp.configure_logger()
 
   let ctx = application.setup()

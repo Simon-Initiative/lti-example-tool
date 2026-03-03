@@ -1,5 +1,7 @@
-import gleam/dynamic.{type Dynamic}
+import envoy
+import gleam/result
 import gleam/string
+import logging
 
 pub type Level {
   Emergency
@@ -12,23 +14,56 @@ pub type Level {
   Debug
 }
 
-/// Configure the Erlang logger to use the log level and output format that we
-/// want, rather than the more verbose Erlang default format.
-///
-@external(erlang, "lti_example_tool_ffi", "configure_logger_backend")
-pub fn configure_backend() -> Nil
+fn to_logging_level(level: Level) -> logging.LogLevel {
+  case level {
+    Emergency -> logging.Emergency
+    Alert -> logging.Alert
+    Critical -> logging.Critical
+    Error -> logging.Error
+    Warning -> logging.Warning
+    Notice -> logging.Notice
+    Info -> logging.Info
+    Debug -> logging.Debug
+  }
+}
 
-@external(erlang, "logger", "log")
-fn erlang_log(a: Level, b: String) -> Dynamic
+pub fn configure() -> Nil {
+  logging.configure()
+}
+
+pub fn configure_backend() -> Nil {
+  configure()
+}
+
+pub fn set_level(level: Level) -> Nil {
+  logging.set_level(to_logging_level(level))
+}
+
+pub fn test_log_level() -> Level {
+  case envoy.get("TEST_LOG_LEVEL") |> result.map(string.lowercase) {
+    Ok("debug") -> Debug
+    Ok("info") -> Info
+    Ok("notice") -> Notice
+    Ok("warning") -> Warning
+    Ok("error") -> Error
+    Ok("critical") -> Critical
+    Ok("alert") -> Alert
+    Ok("emergency") -> Emergency
+    _ -> Emergency
+  }
+}
+
+pub fn configure_for_tests() -> Nil {
+  configure()
+  set_level(test_log_level())
+}
 
 pub fn log(level: Level, message: String) -> Nil {
-  erlang_log(level, message)
-  Nil
+  logging.log(to_logging_level(level), message)
 }
 
 pub fn log_meta(level: Level, message: String, meta: a) -> Nil {
-  erlang_log(level, message <> "\n" <> string.inspect(meta))
-  Nil
+  log(level, message <> "\n" <> string.inspect(meta))
 }
 
 pub fn info(message: String) -> Nil {

@@ -35,6 +35,7 @@ formal = ">= 3.0.0 and < 4.0.0"
 lightbulb = { git = "https://github.com/Simon-Initiative/lightbulb.git", ref = "complete-lti-spec" }
 youid = ">= 1.5.1 and < 2.0.0"
 shellout = ">= 1.8.0 and < 2.0.0"
+logging = ">= 1.3.0 and < 2.0.0"
 
 [dev-dependencies]
 gleeunit = ">= 1.0.0 and < 2.0.0"

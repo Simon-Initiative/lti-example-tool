@@ -16,7 +16,7 @@ import pog
 import shellout
 
 pub fn main() {
-  logger.configure_backend()
+  logger.configure()
 
   case argv.load().arguments {
     ["up"] -> {
