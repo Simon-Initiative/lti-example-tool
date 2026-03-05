@@ -2,9 +2,8 @@ import gleam/dynamic/decode
 import gleam/result
 import gleam/time/timestamp
 import lightbulb/providers/data_provider.{
-  type LaunchContextError, type LaunchContextProvider, type LoginContext,
-  LaunchContextInvalid, LaunchContextNotFound, LaunchContextProvider,
-  LoginContext,
+  type LaunchContextError, type LoginContext, LaunchContextInvalid,
+  LaunchContextNotFound, LoginContext,
 }
 import lti_example_tool/database.{type Database, one}
 import lti_example_tool/utils/logger
@@ -83,12 +82,4 @@ pub fn cleanup_expired_states(db: Database) {
   |> pog.query()
   |> pog.parameter(pog.timestamp(timestamp.system_time()))
   |> pog.execute(db)
-}
-
-pub fn launch_context_provider(db: Database) -> LaunchContextProvider {
-  LaunchContextProvider(
-    save_login_context: fn(context) { save_login_context(db, context) },
-    get_login_context: fn(state) { get_login_context(db, state) },
-    consume_login_context: fn(state) { consume_login_context(db, state) },
-  )
 }

@@ -419,7 +419,8 @@ pub fn access_token(
         ags.result_readonly_scope_url,
         ags.scores_scope_url,
         nrps.context_membership_readonly_claim_url,
-      ]),
+      ])
+      |> result.map_error(access_token.access_token_error_to_string),
     )
 
     Ok(#(registration, access_token))

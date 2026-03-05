@@ -2,7 +2,7 @@ import gleam/result
 import lightbulb/errors.{NonceExpired, NonceInvalid}
 import lightbulb/providers/data_provider.{
   type DataProvider, ProviderActiveJwkNotFound, ProviderCreateNonceFailed,
-  ProviderDeploymentNotFound, ProviderRegistrationNotFound, from_parts,
+  ProviderDeploymentNotFound, ProviderRegistrationNotFound, DataProvider,
 }
 import lti_example_tool/database.{type Database}
 import lti_example_tool/deployments
@@ -13,15 +13,21 @@ import lti_example_tool/registrations
 
 pub fn data_provider(db: Database) -> Result(DataProvider, String) {
   Ok(
-    from_parts(
-      fn() { create_nonce(db) },
-      fn(nonce) { validate_nonce(db, nonce) },
-      oidc_states.launch_context_provider(db),
-      fn(issuer, client_id) { get_registration(db, issuer, client_id) },
-      fn(issuer, client_id, deployment_id) {
+    DataProvider(
+      create_nonce: fn() { create_nonce(db) },
+      validate_nonce: fn(nonce) { validate_nonce(db, nonce) },
+      save_login_context: fn(context) { oidc_states.save_login_context(db, context) },
+      get_login_context: fn(state) { oidc_states.get_login_context(db, state) },
+      consume_login_context: fn(state) {
+        oidc_states.consume_login_context(db, state)
+      },
+      get_registration: fn(issuer, client_id) {
+        get_registration(db, issuer, client_id)
+      },
+      get_deployment: fn(issuer, client_id, deployment_id) {
         get_deployment(db, issuer, client_id, deployment_id)
       },
-      fn() { get_active_jwk(db) },
+      get_active_jwk: fn() { get_active_jwk(db) },
     ),
   )
 }

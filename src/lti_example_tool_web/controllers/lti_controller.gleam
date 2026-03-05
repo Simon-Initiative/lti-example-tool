@@ -557,7 +557,8 @@ pub fn send_score(req: Request, app: AppContext) -> Response {
             ags.lineitem_scope_url,
             ags.result_readonly_scope_url,
             ags.scores_scope_url,
-          ]),
+          ])
+          |> result.map_error(access_token.access_token_error_to_string),
         )
 
         let score =
@@ -626,7 +627,8 @@ pub fn send_score(req: Request, app: AppContext) -> Response {
           access_token.fetch_access_token(app.providers, registration, [
             ags.result_readonly_scope_url,
             ags.scores_scope_url,
-          ]),
+          ])
+          |> result.map_error(access_token.access_token_error_to_string),
         )
 
         let score =
@@ -805,7 +807,8 @@ pub fn fetch_memberships(req: Request, app: AppContext) -> Response {
     use access_token <- result.try(
       access_token.fetch_access_token(app.providers, registration, [
         nrps.context_membership_readonly_claim_url,
-      ]),
+      ])
+      |> result.map_error(access_token.access_token_error_to_string),
     )
 
     nrps.fetch_memberships(
