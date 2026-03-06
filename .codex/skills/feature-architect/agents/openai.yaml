@@ -1,0 +1,4 @@
+interface:
+  display_name: "Feature Architect"
+  short_description: "Draft PRD, FDD, and phased plan docs for the Gleam LTI tool."
+  default_prompt: "Turn this feature idea into prd.md, fdd.md, and plan.md with phased checkbox tasks tailored to this Gleam LTI 1.3 repository."
