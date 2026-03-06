@@ -9,49 +9,46 @@ Use these templates as defaults unless the user specifies a different format.
 
 ## 1. Feature Summary
 - Name:
-- Owner:
 - Last Updated:
 - Status:
 
-## 2. Problem Statement
-- Current pain:
-- Why now:
+Add a concise 2-4 sentence summary describing the user problem, the proposed capability, and the intended outcome.
 
-## 3. Goals and Non-Goals
+## 2. Goals and Non-Goals
 ### Goals
 - 
 
 ### Non-Goals
 - 
 
-## 4. Users and Primary Use Cases
+## 3. Users and Primary Use Cases
 - Personas:
-- Core scenarios:
+- User stories:
 
-## 5. Functional Requirements
+## 4. Functional Requirements
 1. 
 2. 
 
-## 6. Non-Functional Requirements
+## 5. Non-Functional Requirements
 - Reliability:
 - Performance:
 - Security/Compliance:
 - Observability:
 
-## 7. Success Metrics
+## 6. Success Metrics
 - Product metrics:
 - Technical metrics:
 
-## 8. Dependencies and Constraints
+## 7. Dependencies and Constraints
 - Internal dependencies:
 - External dependencies:
 - Constraints:
 
-## 9. Risks and Mitigations
+## 8. Risks and Mitigations
 - Risk:
 - Mitigation:
 
-## 10. Acceptance Criteria
+## 9. Acceptance Criteria
 1. Given/When/Then...
 2. 
 ```
