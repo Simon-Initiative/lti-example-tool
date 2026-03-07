@@ -24,6 +24,8 @@ pub fn handle_request(req: Request, app: AppContext) -> Response {
 
     ["launch"] -> lti_controller.validate_launch(req, app)
 
+    ["deep-linking", "respond"] -> lti_controller.respond_deep_linking(req, app)
+
     ["app"] -> lti_controller.app(req, app)
 
     ["api", "auth", "token"] -> lti_controller.token(req, app)

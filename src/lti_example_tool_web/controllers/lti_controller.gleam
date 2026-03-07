@@ -1,20 +1,23 @@
 import formal/form
 import gleam/dict.{type Dict}
-import gleam/dynamic.{type Dynamic}
+import gleam/dynamic
 import gleam/dynamic/decode
 import gleam/function
 import gleam/http
 import gleam/http/cookie
 import gleam/http/request
+import gleam/http/response as http_response
 import gleam/int
 import gleam/json
 import gleam/list
-import gleam/option.{None, Some}
+import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import gleam/time/calendar
 import gleam/time/timestamp
 import gleam/uri
+import lightbulb/deep_linking
+import lightbulb/deep_linking/content_item
 import lightbulb/errors
 import lightbulb/jose
 import lightbulb/jwk.{type Jwk}
@@ -28,6 +31,8 @@ import lti_example_tool/api_tokens
 import lti_example_tool/app_context.{type AppContext}
 import lti_example_tool/config
 import lti_example_tool/database.{type Record, Record}
+import lti_example_tool/deep_link_resources
+import lti_example_tool/deep_linking_contexts
 import lti_example_tool/jwks
 import lti_example_tool/registrations
 import lti_example_tool/tokens
@@ -44,6 +49,12 @@ const launch_session_cookie_name = "launch_session"
 const roles_claim = "https://purl.imsglobal.org/spec/lti/claim/roles"
 
 const context_claim = "https://purl.imsglobal.org/spec/lti/claim/context"
+
+const resource_link_message_type = "LtiResourceLinkRequest"
+
+const custom_claim = "https://purl.imsglobal.org/spec/lti/claim/custom"
+
+const deep_linking_context_ttl_seconds = 600
 
 type LaunchSession {
   LaunchSession(
@@ -83,66 +94,7 @@ pub fn validate_launch(req: Request, app: AppContext) -> Response {
   case session_state {
     Ok(session_state) ->
       case tool.validate_launch(app.providers.data, params, session_state) {
-        Ok(claims) -> {
-          case launch_session_from_claims(claims) {
-            Ok(session) -> {
-              case
-                users.upsert(
-                  app.db,
-                  users.User(
-                    sub: session.sub,
-                    name: session.name,
-                    email: session.email,
-                    issuer: session.issuer,
-                    audience: session.audience,
-                    roles: string.join(session.roles, ", "),
-                    context_title: session.context_title,
-                  ),
-                )
-              {
-                Ok(user_record) ->
-                  case
-                    tokens.create_bootstrap_token(
-                      app.db,
-                      user_record.id,
-                      config.bootstrap_token_ttl_seconds(),
-                    )
-                  {
-                    Ok(bootstrap_token) -> {
-                      use <- set_cookie(
-                        launch_session_cookie_name,
-                        encode_launch_session(session),
-                        cookie.Attributes(
-                          ..cookie.defaults(http.Https),
-                          same_site: Some(cookie.None),
-                          max_age: option.Some(60 * 60 * 8),
-                        ),
-                      )
-
-                      render_html(lti_html.launch_details(
-                        claims,
-                        app,
-                        bootstrap_token,
-                      ))
-                    }
-                    Error(e) -> {
-                      logger.error_meta("Failed to create bootstrap token", e)
-                      render_html(error_page("Failed to create bootstrap token"))
-                    }
-                  }
-                Error(e) -> {
-                  logger.error_meta("Failed to upsert user", e)
-                  render_html(error_page("Failed to persist launch user"))
-                }
-              }
-            }
-            Error(e) -> {
-              logger.error_meta("Failed to create launch session", e)
-
-              render_html(error_page("Failed to process launch claims"))
-            }
-          }
-        }
+        Ok(claims) -> route_launch_by_message_type(claims, app)
         Error(e) -> {
           logger.error_meta("Invalid launch", e)
 
@@ -152,6 +104,196 @@ pub fn validate_launch(req: Request, app: AppContext) -> Response {
         }
       }
     Error(response) -> response
+  }
+}
+
+pub fn respond_deep_linking(req: Request, app: AppContext) -> Response {
+  use <- wisp.require_method(req, http.Post)
+  use formdata <- wisp.require_form(req)
+  let params = dict.from_list(formdata.values)
+
+  let result = {
+    use context_token <- result.try(required_param(params, "context_token"))
+    use resource_id <- result.try(required_param(params, "resource_id"))
+    use selected_resource <- result.try(deep_link_resources.parse(resource_id))
+    use context <- result.try(
+      deep_linking_contexts.consume_context(app.db, context_token)
+      |> result.map_error(deep_linking_contexts.consume_error_to_string),
+    )
+    use active_jwk <- result.try(
+      jwks.get_active_jwk(app.db)
+      |> result.map(fn(record) { record.data })
+      |> result.replace_error("Failed to load active signing key"),
+    )
+
+    let response_jwt =
+      build_deep_linking_response_jwt(context, selected_resource, active_jwk)
+
+    use jwt <- result.try(response_jwt)
+
+    let response_html =
+      deep_linking.build_response_form_post(context.deep_link_return_url, jwt)
+      |> result.map_error(errors.deep_linking_error_to_string)
+
+    use html <- result.try(response_html)
+
+    Ok(#(context, selected_resource, html))
+  }
+
+  case result {
+    Ok(#(context, selected_resource, html)) -> {
+      logger.info_meta("Deep-linking response generated", #(
+        context.iss,
+        context.deployment_id,
+        deep_link_resources.id(selected_resource),
+      ))
+
+      wisp.ok()
+      |> http_response.set_header("content-type", "text/html; charset=utf-8")
+      |> wisp.string_body(html)
+    }
+    Error(error) -> {
+      logger.error_meta("Deep-linking response failed", error)
+
+      render_html(error_page(
+        "Unable to complete deep-linking response. Please restart the deep-link launch from your platform.",
+      ))
+    }
+  }
+}
+
+fn route_launch_by_message_type(
+  claims: Dict(String, dynamic.Dynamic),
+  app: AppContext,
+) -> Response {
+  case message_type_from_claims(claims) {
+    Ok(message_type) if message_type == resource_link_message_type ->
+      handle_resource_link_launch(claims, app)
+    Ok(message_type)
+      if message_type == deep_linking.lti_message_type_deep_linking_request
+    -> handle_deep_linking_launch(claims, app)
+    Ok(message_type) -> {
+      logger.error("Unsupported LTI message type: " <> message_type)
+      render_html(error_page("Unsupported LTI message type"))
+    }
+    Error(error) -> {
+      logger.error_meta("Failed to read LTI message type", error)
+      render_html(error_page("Failed to process launch claims"))
+    }
+  }
+}
+
+fn handle_resource_link_launch(
+  claims: Dict(String, dynamic.Dynamic),
+  app: AppContext,
+) -> Response {
+  case launch_session_from_claims(claims) {
+    Ok(session) -> {
+      case
+        users.upsert(
+          app.db,
+          users.User(
+            sub: session.sub,
+            name: session.name,
+            email: session.email,
+            issuer: session.issuer,
+            audience: session.audience,
+            roles: string.join(session.roles, ", "),
+            context_title: session.context_title,
+          ),
+        )
+      {
+        Ok(user_record) ->
+          case
+            tokens.create_bootstrap_token(
+              app.db,
+              user_record.id,
+              config.bootstrap_token_ttl_seconds(),
+            )
+          {
+            Ok(bootstrap_token) -> {
+              use <- set_cookie(
+                launch_session_cookie_name,
+                encode_launch_session(session),
+                cookie.Attributes(
+                  ..cookie.defaults(http.Https),
+                  same_site: Some(cookie.None),
+                  max_age: option.Some(60 * 60 * 8),
+                ),
+              )
+
+              render_html(lti_html.launch_details(
+                claims,
+                app,
+                bootstrap_token,
+                selected_resource_title_from_claims(claims),
+              ))
+            }
+            Error(e) -> {
+              logger.error_meta("Failed to create bootstrap token", e)
+              render_html(error_page("Failed to create bootstrap token"))
+            }
+          }
+        Error(e) -> {
+          logger.error_meta("Failed to upsert user", e)
+          render_html(error_page("Failed to persist launch user"))
+        }
+      }
+    }
+    Error(e) -> {
+      logger.error_meta("Failed to create launch session", e)
+
+      render_html(error_page("Failed to process launch claims"))
+    }
+  }
+}
+
+fn handle_deep_linking_launch(
+  claims: Dict(String, dynamic.Dynamic),
+  app: AppContext,
+) -> Response {
+  let result = {
+    use deep_linking_settings <- result.try(
+      deep_linking.get_deep_linking_settings(claims)
+      |> result.map_error(errors.deep_linking_error_to_string),
+    )
+    use issuer <- result.try(required_string_claim(claims, "iss"))
+    use audience <- result.try(required_audience_claim(claims))
+    use deployment_id <- result.try(required_string_claim(
+      claims,
+      deep_linking.claim_deployment_id,
+    ))
+    use context_token <- result.try(deep_linking_contexts.create_context(
+      app.db,
+      deep_linking_contexts.NewDeepLinkingContext(
+        iss: issuer,
+        aud: audience,
+        deployment_id: deployment_id,
+        deep_link_return_url: deep_linking_settings.deep_link_return_url,
+        request_data: deep_linking_settings.data,
+        accept_types: deep_linking_settings.accept_types,
+        accept_multiple: deep_linking_settings.accept_multiple,
+        accept_lineitem: deep_linking_settings.accept_lineitem,
+        ttl_seconds: deep_linking_context_ttl_seconds,
+      ),
+    ))
+
+    Ok(context_token)
+  }
+
+  case result {
+    Ok(context_token) -> {
+      logger.info_meta("Deep-linking launch detected", context_token)
+
+      render_html(lti_html.deep_linking_resource_picker(context_token))
+    }
+    Error(error) -> {
+      logger.error_meta("Failed to initialize deep-linking launch", error)
+
+      render_html(error_page(
+        "Unable to start deep-linking flow. Please retry from your platform.",
+      ))
+    }
   }
 }
 
@@ -354,7 +496,7 @@ fn parse_bearer_token(header: String) -> Result(String, String) {
 }
 
 fn launch_session_from_claims(
-  claims: Dict(String, Dynamic),
+  claims: Dict(String, dynamic.Dynamic),
 ) -> Result(LaunchSession, String) {
   use sub <- result.try(required_string_claim(claims, "sub"))
   use issuer <- result.try(required_string_claim(claims, "iss"))
@@ -375,7 +517,7 @@ fn launch_session_from_claims(
   ))
 }
 
-fn preferred_name_from_claims(claims: Dict(String, Dynamic)) -> String {
+fn preferred_name_from_claims(claims: Dict(String, dynamic.Dynamic)) -> String {
   let name = optional_string_claim(claims, "name") |> result.unwrap("")
   let given_name =
     optional_string_claim(claims, "given_name") |> result.unwrap("")
@@ -401,7 +543,7 @@ fn first_non_empty(values: List(String)) -> String {
 }
 
 fn required_string_claim(
-  claims: Dict(String, Dynamic),
+  claims: Dict(String, dynamic.Dynamic),
   key: String,
 ) -> Result(String, String) {
   use claim <- result.try(
@@ -413,7 +555,7 @@ fn required_string_claim(
   |> result.replace_error("Invalid required claim: " <> key)
 }
 
-fn optional_string_claim(claims: Dict(String, Dynamic), key: String) {
+fn optional_string_claim(claims: Dict(String, dynamic.Dynamic), key: String) {
   case dict.get(claims, key) {
     Ok(claim) ->
       decode.run(claim, decode.string)
@@ -423,7 +565,7 @@ fn optional_string_claim(claims: Dict(String, Dynamic), key: String) {
 }
 
 fn required_audience_claim(
-  claims: Dict(String, Dynamic),
+  claims: Dict(String, dynamic.Dynamic),
 ) -> Result(String, String) {
   use claim <- result.try(
     dict.get(claims, "aud")
@@ -445,7 +587,106 @@ fn required_audience_claim(
   }
 }
 
-fn optional_roles_claim(claims: Dict(String, Dynamic)) -> List(String) {
+fn message_type_from_claims(
+  claims: Dict(String, dynamic.Dynamic),
+) -> Result(String, String) {
+  use claim <- result.try(
+    dict.get(claims, tool.message_type_claim)
+    |> result.replace_error("Missing required claim: message_type"),
+  )
+
+  decode.run(claim, decode.string)
+  |> result.replace_error("Invalid required claim: message_type")
+}
+
+fn required_param(
+  params: Dict(String, String),
+  key: String,
+) -> Result(String, String) {
+  dict.get(params, key)
+  |> result.replace_error("Missing required parameter: " <> key)
+  |> result.try(fn(value) {
+    case string.trim(value) {
+      "" -> Error("Missing required parameter: " <> key)
+      _ -> Ok(value)
+    }
+  })
+}
+
+fn build_deep_linking_response_jwt(
+  context: deep_linking_contexts.DeepLinkingContext,
+  resource: deep_link_resources.ExampleResource,
+  active_jwk: Jwk,
+) -> Result(String, String) {
+  deep_linking.build_response_jwt_with_profile(
+    deep_linking_request_claims(context),
+    deep_linking_contexts.to_settings(context),
+    [build_resource_content_item(resource)],
+    deep_linking.default_response_options(),
+    active_jwk,
+    case is_canvas_context(context) {
+      True -> deep_linking.Canvas
+      False -> deep_linking.Standard
+    },
+  )
+  |> result.map_error(errors.deep_linking_error_to_string)
+}
+
+fn deep_linking_request_claims(
+  context: deep_linking_contexts.DeepLinkingContext,
+) -> Dict(String, dynamic.Dynamic) {
+  dict.from_list([
+    #("iss", dynamic.string(context.iss)),
+    #("aud", dynamic.string(context.aud)),
+    #(deep_linking.claim_deployment_id, dynamic.string(context.deployment_id)),
+  ])
+}
+
+fn is_canvas_context(context: deep_linking_contexts.DeepLinkingContext) -> Bool {
+  let issuer = string.lowercase(context.iss)
+
+  string.contains(issuer, "instructure.com")
+  || string.contains(issuer, "canvas")
+}
+
+fn build_resource_content_item(
+  resource: deep_link_resources.ExampleResource,
+) -> content_item.ContentItem {
+  content_item.lti_resource_link(
+    option.Some(config.public_url() <> "/launch"),
+    option.Some(deep_link_resources.title(resource)),
+    option.Some("Deep-linking showcase item"),
+    option.Some(
+      dict.from_list([#("resource_id", deep_link_resources.id(resource))]),
+    ),
+    option.None,
+  )
+}
+
+fn selected_resource_title_from_claims(
+  claims: Dict(String, dynamic.Dynamic),
+) -> Option(String) {
+  case dict.get(claims, custom_claim) {
+    Ok(custom_claim_value) ->
+      case
+        decode.run(
+          custom_claim_value,
+          decode.dict(decode.string, decode.string),
+        )
+      {
+        Ok(custom_fields) ->
+          case dict.get(custom_fields, "resource_id") {
+            Ok(resource_id) ->
+              Some(deep_link_resources.from_custom_resource_id(resource_id))
+            Error(_) -> None
+          }
+        Error(_) -> None
+      }
+    Error(_) -> None
+  }
+}
+
+fn optional_roles_claim(claims: Dict(String, dynamic.Dynamic)) -> List(String) {
   case dict.get(claims, roles_claim) {
     Ok(claim) ->
       decode.run(claim, decode.list(decode.string)) |> result.unwrap([])
@@ -453,7 +694,7 @@ fn optional_roles_claim(claims: Dict(String, Dynamic)) -> List(String) {
   }
 }
 
-fn optional_context_title_claim(claims: Dict(String, Dynamic)) -> String {
+fn optional_context_title_claim(claims: Dict(String, dynamic.Dynamic)) -> String {
   case dict.get(claims, context_claim) {
     Ok(claim) -> {
       decode.run(claim, {

@@ -12,13 +12,14 @@ import lightbulb/services/nrps
 import lightbulb/services/nrps/membership.{type Membership}
 import lti_example_tool/app_context.{type AppContext}
 import lti_example_tool/database.{Record}
+import lti_example_tool/deep_link_resources
 import lti_example_tool/registrations
 import lti_example_tool_web/html/components.{Primary}
 import lti_example_tool_web/html/components/forms.{Number, Text}
 import lti_example_tool_web/html/components/page.{app_page, page}
 import lti_example_tool_web/html/components/tables.{Column}
 import nakai/attr.{action, class, href, id, method, name, src, type_, value}
-import nakai/html.{type Node, div, form, h2, i, img, input, section, span}
+import nakai/html.{type Node, div, form, h2, i, img, input, p, section, span}
 
 pub fn client_app(_app: AppContext) -> Node {
   app_page([
@@ -39,9 +40,11 @@ pub fn launch_details(
   claims: Dict(String, Dynamic),
   app: AppContext,
   bootstrap_token: String,
+  selected_resource_title: Option(String),
 ) -> Node {
   page("Launch Successful", [
     div([class("container mx-auto flex flex-col gap-12")], [
+      selected_resource_section(selected_resource_title),
       claims_section(claims),
       ags_section(app, claims),
       nrps_section(app, claims),
@@ -61,8 +64,77 @@ pub fn launch_details(
   ])
 }
 
+pub fn deep_linking_resource_picker(context_token: String) -> Node {
+  page("Choose A Resource", [
+    div([class("container mx-auto flex flex-col gap-6")], [
+      section([], [
+        heading("Deep Linking Resource Picker"),
+        p([class("text-gray-600")], [
+          html.Text(
+            "Select one example resource and return it to the platform.",
+          ),
+        ]),
+      ]),
+      div([class("grid gap-4 md:grid-cols-3")], [
+        deep_linking_choice_card(
+          context_token,
+          deep_link_resources.Resource1,
+          "Intro example content",
+        ),
+        deep_linking_choice_card(
+          context_token,
+          deep_link_resources.Resource2,
+          "Practice example content",
+        ),
+        deep_linking_choice_card(
+          context_token,
+          deep_link_resources.Resource3,
+          "Assessment example content",
+        ),
+      ]),
+    ]),
+  ])
+}
+
 fn heading(content: String) -> Node {
   h2([class("text-xl font-bold mb-2")], [html.Text(content)])
+}
+
+fn selected_resource_section(selected_resource_title: Option(String)) -> Node {
+  case selected_resource_title {
+    Some(resource_title) ->
+      section([], [
+        heading("Deep-Linked Resource"),
+        div([class("rounded border border-blue-200 bg-blue-50 p-4")], [
+          html.Text("Selected resource: " <> resource_title),
+        ]),
+      ])
+    None -> div([], [])
+  }
+}
+
+fn deep_linking_choice_card(
+  context_token: String,
+  resource: deep_link_resources.ExampleResource,
+  description: String,
+) -> Node {
+  div([class("rounded border border-gray-200 bg-white p-4 shadow-sm")], [
+    h2([class("text-lg font-semibold mb-2")], [
+      html.Text(deep_link_resources.title(resource)),
+    ]),
+    p([class("text-sm text-gray-600 mb-4")], [html.Text(description)]),
+    form([method("post"), action("/deep-linking/respond")], [
+      input([type_("hidden"), name("context_token"), value(context_token)]),
+      input([
+        type_("hidden"),
+        name("resource_id"),
+        value(deep_link_resources.id(resource)),
+      ]),
+      components.button(Primary, [type_("submit"), class("w-full")], [
+        html.Text("Select " <> deep_link_resources.title(resource)),
+      ]),
+    ]),
+  ])
 }
 
 fn claims_section(claims: Dict(String, Dynamic)) -> Node {
