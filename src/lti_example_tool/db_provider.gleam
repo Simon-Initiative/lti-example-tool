@@ -1,8 +1,9 @@
 import gleam/result
 import lightbulb/errors.{NonceExpired, NonceInvalid}
 import lightbulb/providers/data_provider.{
-  type DataProvider, ProviderActiveJwkNotFound, ProviderCreateNonceFailed,
-  ProviderDeploymentNotFound, ProviderRegistrationNotFound, DataProvider,
+  type DataProvider, DataProvider, ProviderActiveJwkNotFound,
+  ProviderCreateNonceFailed, ProviderDeploymentNotFound,
+  ProviderRegistrationNotFound,
 }
 import lti_example_tool/database.{type Database}
 import lti_example_tool/deployments
@@ -16,7 +17,9 @@ pub fn data_provider(db: Database) -> Result(DataProvider, String) {
     DataProvider(
       create_nonce: fn() { create_nonce(db) },
       validate_nonce: fn(nonce) { validate_nonce(db, nonce) },
-      save_login_context: fn(context) { oidc_states.save_login_context(db, context) },
+      save_login_context: fn(context) {
+        oidc_states.save_login_context(db, context)
+      },
       get_login_context: fn(state) { oidc_states.get_login_context(db, state) },
       consume_login_context: fn(state) {
         oidc_states.consume_login_context(db, state)
