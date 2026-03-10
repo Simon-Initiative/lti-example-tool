@@ -11,6 +11,7 @@ import lightbulb/providers
 import lightbulb/providers/http_mock_provider
 import lightbulb/providers/memory_provider
 import lightbulb/registration.{Registration}
+import lti_example_tool/admin_auth
 import lti_example_tool/app_context.{AppContext}
 import lti_example_tool/config
 import lti_example_tool/env
@@ -55,6 +56,7 @@ fn setup() {
       env: env.Test,
       port: 8080,
       secret_key_base: "secret_key_base",
+      admin_auth: admin_auth.enabled("admin-password"),
       db: db,
       static_directory: "static_directory",
       providers: providers.Providers(lti_data_provider, http_provider),
@@ -147,21 +149,92 @@ pub fn page_not_found_test() {
 pub fn get_registrations_test() {
   let #(_memory_provider, ctx) = setup()
 
-  let request = testing.request(http.Get, "/registrations")
+  let request = testing.browser_request(http.Get, "/registrations")
   let response = router.handle_request(request, ctx)
 
   response.status
-  |> should.equal(200)
+  |> should.equal(303)
+
+  response.headers
+  |> list.key_find("location")
+  |> should.equal(Ok("/admin/auth?return_to=%2Fregistrations"))
 }
 
 pub fn get_registration_test() {
   let #(_memory_provider, ctx) = setup()
 
-  let request = testing.request(http.Get, "/registrations/123")
+  let request = testing.browser_request(http.Get, "/registrations/123")
   let response = router.handle_request(request, ctx)
 
   response.status
-  |> should.equal(404)
+  |> should.equal(303)
+}
+
+pub fn admin_sign_in_page_test() {
+  let #(_memory_provider, ctx) = setup()
+
+  let request =
+    testing.browser_request(http.Get, "/admin/auth?return_to=%2Fregistrations")
+  let response = router.handle_request(request, ctx)
+
+  response.status
+  |> should.equal(200)
+
+  response
+  |> testing.read_body()
+  |> string.contains("Admin Sign In")
+  |> should.be_true()
+}
+
+pub fn admin_sign_in_and_return_to_registration_test() {
+  let #(_memory_provider, ctx) = setup()
+
+  let initial_request = testing.browser_request(http.Get, "/registrations")
+  let initial_response = router.handle_request(initial_request, ctx)
+
+  let sign_in_request =
+    testing.browser_request(http.Post, "/admin/auth")
+    |> testing.session(initial_request, initial_response)
+    |> testing.form_body([
+      #("password", "admin-password"),
+      #("return_to", "/registrations"),
+    ])
+  let sign_in_response = router.handle_request(sign_in_request, ctx)
+
+  sign_in_response.status
+  |> should.equal(303)
+
+  sign_in_response.headers
+  |> list.key_find("location")
+  |> should.equal(Ok("/registrations"))
+
+  let registrations_request =
+    testing.browser_request(http.Get, "/registrations")
+    |> testing.session(sign_in_request, sign_in_response)
+  let registrations_response = router.handle_request(registrations_request, ctx)
+
+  registrations_response.status
+  |> should.equal(200)
+}
+
+pub fn admin_sign_in_rejects_invalid_password_test() {
+  let #(_memory_provider, ctx) = setup()
+
+  let request =
+    testing.browser_request(http.Post, "/admin/auth")
+    |> testing.form_body([
+      #("password", "wrong-password"),
+      #("return_to", "/registrations"),
+    ])
+  let response = router.handle_request(request, ctx)
+
+  response.status
+  |> should.equal(401)
+
+  response
+  |> testing.read_body()
+  |> string.contains("Incorrect password.")
+  |> should.be_true()
 }
 
 pub fn get_current_user_unauthorized_test() {

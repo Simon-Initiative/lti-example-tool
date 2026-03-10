@@ -7,3 +7,5 @@ seeds.yml
 node_modules
 priv/static
 docker-compose.override.yml
+.env
+.envrc

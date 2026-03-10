@@ -11,48 +11,37 @@ import lightbulb/services/nrps
 import lti_example_tool/app_context.{type AppContext}
 import lti_example_tool/database.{Record}
 import lti_example_tool/deployments
-import lti_example_tool/feature_flags
 import lti_example_tool/registrations
 import lti_example_tool/utils/logger
+import lti_example_tool_web/admin_auth
 import lti_example_tool_web/html.{render_html} as _
 import lti_example_tool_web/html/components/page.{error_page}
 import lti_example_tool_web/html/registrations_html
 import wisp.{type Request, type Response}
 
 pub fn resources(req: Request, app: AppContext) -> Response {
-  case
-    feature_flags.feature_enabled(
-      app.feature_flags,
-      feature_flags.Registrations,
-    )
-  {
-    True -> {
-      // This handler for `/registrations` can respond to both GET and POST requests,
-      // so we pattern match on the method here.
-      case req.method, wisp.path_segments(req) {
-        Get, ["registrations"] -> index(app)
+  use <- admin_auth.require_admin(req, app.admin_auth)
 
-        Get, ["registrations", "new"] -> new()
+  // This handler for `/registrations` can respond to both GET and POST requests,
+  // so we pattern match on the method here.
+  case req.method, wisp.path_segments(req) {
+    Get, ["registrations"] -> index(app)
 
-        Post, ["registrations"] -> create(req, app)
+    Get, ["registrations", "new"] -> new()
 
-        Get, ["registrations", id] -> show(req, app, id)
+    Post, ["registrations"] -> create(req, app)
 
-        Get, ["registrations", id, "edit"] -> edit(req, app, id)
+    Get, ["registrations", id] -> show(req, app, id)
 
-        Post, ["registrations", id] -> update(req, app, id)
+    Get, ["registrations", id, "edit"] -> edit(req, app, id)
 
-        Post, ["registrations", id, "delete"] -> delete(req, app, id)
+    Post, ["registrations", id] -> update(req, app, id)
 
-        Post, ["registrations", id, "access_token"] ->
-          access_token(req, app, id)
+    Post, ["registrations", id, "delete"] -> delete(req, app, id)
 
-        _, _ -> wisp.method_not_allowed([Get, Post])
-      }
-    }
-    False -> {
-      render_html(registrations_html.feature_not_enabled())
-    }
+    Post, ["registrations", id, "access_token"] -> access_token(req, app, id)
+
+    _, _ -> wisp.method_not_allowed([Get, Post])
   }
 }
 

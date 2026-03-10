@@ -2,6 +2,7 @@ import gleam/otp/actor
 import gleam/otp/static_supervisor.{type Supervisor} as supervisor
 import lightbulb/providers.{Providers}
 import lightbulb/providers/httpc_provider
+import lti_example_tool/admin_auth
 import lti_example_tool/app_context.{type AppContext, AppContext}
 import lti_example_tool/config
 import lti_example_tool/database
@@ -16,6 +17,7 @@ pub fn setup() -> AppContext {
   let port = config.port()
   let static_directory = static_directory()
   let secret_key_base = config.secret_key_base(env)
+  let admin_auth = admin_auth.load()
 
   let db_pool_name = "lti_example_tool_db_pool"
   let assert Ok(db_config) = database.get_config(db_pool_name)
@@ -36,6 +38,7 @@ pub fn setup() -> AppContext {
     env: env,
     port: port,
     secret_key_base: secret_key_base,
+    admin_auth: admin_auth,
     db: db,
     static_directory: static_directory,
     providers: Providers(lti_data_provider, http_provider),

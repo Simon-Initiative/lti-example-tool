@@ -1,4 +1,5 @@
 import lti_example_tool/app_context.{type AppContext}
+import lti_example_tool_web/controllers/admin_auth_controller
 import lti_example_tool_web/controllers/index_controller
 import lti_example_tool_web/controllers/lti_controller
 import lti_example_tool_web/controllers/registration_controller
@@ -19,6 +20,8 @@ pub fn handle_request(req: Request, app: AppContext) -> Response {
     // This matches `/registrations` and any sub-paths like
     // `/registrations/123` or `/registrations/123/edit`.
     ["registrations", ..] -> registration_controller.resources(req, app)
+
+    ["admin", "auth"] -> admin_auth_controller.sign_in(req, app)
 
     ["login"] -> lti_controller.oidc_login(req, app)
 

@@ -41,6 +41,10 @@ pub fn secret_key_base(env: Env) -> String {
   }
 }
 
+pub fn admin_password() {
+  envoy.get("ADMIN_PASSWORD")
+}
+
 /// Returns the full public URL for the tool, including the scheme, host, and port.
 pub fn public_url() {
   case envoy.get("PUBLIC_URL") {
