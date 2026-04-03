@@ -124,6 +124,24 @@ gleam run -m lti_example_tool/database/migrate up
 gleam test
 ```
 
+## Kubernetes
+
+Kubernetes manifests live under [`kubernetes/`](/Users/eliknebel/Developer/lti-example-tool/kubernetes/README.md) and use `kustomize` rather than Helm. The included `plasma` overlay deploys the app plus an in-cluster PostgreSQL instance, and the manual GitHub Actions workflow in [`.github/workflows/deploy.yml`](/Users/eliknebel/Developer/lti-example-tool/.github/workflows/deploy.yml) builds the selected branch or tag and deploys it from the `plasma` self-hosted runner.
+
+Set these GitHub Actions values before using the deploy workflow:
+
+- Secret: `SECRET_KEY_BASE` (required)
+- Secret: `POSTGRES_PASSWORD` (optional, defaults to `postgres`)
+- Secret: `ADMIN_PASSWORD` (optional)
+- Variable: `POSTGRES_USER` (optional, defaults to `postgres`)
+- Variable: `POSTGRES_DB` (optional, defaults to `lti_example_tool`)
+
+When you run the workflow manually, provide:
+
+- `git_ref`: the branch or tag to deploy
+- `ingress_host`: the DNS host to expose through the ingress
+- `public_url`: the externally reachable app URL, used for LTI callback generation
+
 For LMS launches over ngrok, expose the app server:
 
 Example:

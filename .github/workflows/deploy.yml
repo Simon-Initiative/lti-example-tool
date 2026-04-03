@@ -1,0 +1,108 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: Branch or tag to deploy
+        required: true
+        default: master
+        type: string
+      ingress_host:
+        description: Public DNS host for the ingress
+        required: true
+        type: string
+      public_url:
+        description: Public URL exposed by the application
+        required: true
+        type: string
+
+concurrency:
+  group: plasma-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on:
+      - self-hosted
+      - plasma
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout selected ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.git_ref }}
+
+      - name: Set image tag
+        id: image
+        shell: bash
+        run: |
+          echo "tag=deploy-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push deploy image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/simon-initiative/lti-example-tool:${{ steps.image.outputs.tag }}
+          platforms: linux/amd64
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Create namespace and runtime secret
+        shell: bash
+        env:
+          POSTGRES_USER: ${{ vars.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ vars.POSTGRES_DB }}
+          SECRET_KEY_BASE: ${{ secrets.SECRET_KEY_BASE }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+        run: |
+          if [ -z "${SECRET_KEY_BASE}" ]; then
+            echo "SECRET_KEY_BASE must be set"
+            exit 1
+          fi
+
+          kubectl create namespace lti-example-tool --dry-run=client -o yaml | kubectl apply -f -
+
+          kubectl -n lti-example-tool create secret generic lti-example-tool-secrets \
+            --from-literal=postgres-user="${POSTGRES_USER:-postgres}" \
+            --from-literal=postgres-password="${POSTGRES_PASSWORD:-postgres}" \
+            --from-literal=postgres-db="${POSTGRES_DB:-lti_example_tool}" \
+            --from-literal=secret-key-base="${SECRET_KEY_BASE}" \
+            --from-literal=admin-password="${ADMIN_PASSWORD:-}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Render plasma overlay
+        shell: bash
+        env:
+          IMAGE_TAG: ${{ steps.image.outputs.tag }}
+          INGRESS_HOST: ${{ inputs.ingress_host }}
+          PUBLIC_URL: ${{ inputs.public_url }}
+        run: |
+          rm -rf /tmp/lti-example-tool-kubernetes
+          cp -R kubernetes /tmp/lti-example-tool-kubernetes
+          sed -i "s|__INGRESS_HOST__|${INGRESS_HOST}|g" /tmp/lti-example-tool-kubernetes/overlays/plasma/ingress.yaml
+          sed -i "s|__PUBLIC_URL__|${PUBLIC_URL}|g" /tmp/lti-example-tool-kubernetes/base/deployment.yaml
+          sed -i "s|newTag: latest|newTag: ${IMAGE_TAG}|g" /tmp/lti-example-tool-kubernetes/overlays/plasma/kustomization.yaml
+          kubectl apply -k /tmp/lti-example-tool-kubernetes/overlays/plasma
+
+      - name: Wait for rollout
+        shell: bash
+        run: |
+          kubectl -n lti-example-tool rollout status statefulset/lti-example-tool-postgres --timeout=300s
+          kubectl -n lti-example-tool rollout status deployment/lti-example-tool --timeout=300s

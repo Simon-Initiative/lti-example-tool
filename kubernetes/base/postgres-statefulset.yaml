@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: lti-example-tool-postgres
+spec:
+  serviceName: lti-example-tool-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: postgres
+      app.kubernetes.io/name: lti-example-tool
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: postgres
+        app.kubernetes.io/name: lti-example-tool
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: lti-example-tool-secrets
+                  key: postgres-user
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: lti-example-tool-secrets
+                  key: postgres-password
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: lti-example-tool-secrets
+                  key: postgres-db
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -ec
+                - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: postgres
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 10Gi

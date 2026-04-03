@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: lti-example-tool-postgres
+spec:
+  selector:
+    app.kubernetes.io/component: postgres
+    app.kubernetes.io/name: lti-example-tool
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres

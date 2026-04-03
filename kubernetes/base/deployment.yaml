@@ -1,0 +1,112 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lti-example-tool
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: web
+      app.kubernetes.io/name: lti-example-tool
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: web
+        app.kubernetes.io/name: lti-example-tool
+    spec:
+      initContainers:
+        - name: wait-for-postgres
+          image: postgres:16-alpine
+          command:
+            - sh
+            - -ec
+            - until pg_isready -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB"; do sleep 2; done
+          env:
+            - name: POSTGRES_HOST
+              value: lti-example-tool-postgres
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: lti-example-tool-secrets
+                  key: postgres-user
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: lti-example-tool-secrets
+                  key: postgres-password
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: lti-example-tool-secrets
+                  key: postgres-db
+      containers:
+        - name: app
+          image: ghcr.io/simon-initiative/lti-example-tool:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: ENV
+              value: prod
+            - name: PORT
+              value: "8080"
+            - name: PUBLIC_URL
+              value: __PUBLIC_URL__
+            - name: ENABLE_REGISTRATIONS
+              value: "TRUE"
+            - name: POSTGRES_HOST
+              value: lti-example-tool-postgres
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: lti-example-tool-secrets
+                  key: postgres-user
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: lti-example-tool-secrets
+                  key: postgres-password
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: lti-example-tool-secrets
+                  key: postgres-db
+            - name: DATABASE_URL
+              value: postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)
+            - name: SECRET_KEY_BASE
+              valueFrom:
+                secretKeyRef:
+                  name: lti-example-tool-secrets
+                  key: secret-key-base
+            - name: ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: lti-example-tool-secrets
+                  key: admin-password
+          readinessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          startupProbe:
+            tcpSocket:
+              port: http
+            failureThreshold: 30
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
