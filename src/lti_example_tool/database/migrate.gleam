@@ -186,7 +186,9 @@ pub fn ensure_initialized(db_config: pog.Config) {
   case db_exists(db_config) {
     True -> {
       logger.info(
-        "Database '" <> db_config.database <> "' exists. Ensuring migrations and bootstrap data are applied...",
+        "Database '"
+        <> db_config.database
+        <> "' exists. Ensuring migrations and bootstrap data are applied...",
       )
       ensure_existing_database_is_ready(db_config)
     }
