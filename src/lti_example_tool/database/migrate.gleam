@@ -182,12 +182,13 @@ fn start_connection_with_retry(db_config: pog.Config, attempts_left: Int) {
 @external(erlang, "timer", "sleep")
 fn sleep(time_ms: Int) -> Nil
 
-pub fn maybe_initialize_db(db_config: pog.Config) {
+pub fn ensure_initialized(db_config: pog.Config) {
   case db_exists(db_config) {
     True -> {
-      logger.debug("Database '" <> db_config.database <> "' exists.")
-
-      Nil
+      logger.info(
+        "Database '" <> db_config.database <> "' exists. Ensuring migrations and bootstrap data are applied...",
+      )
+      ensure_existing_database_is_ready(db_config)
     }
     False -> {
       logger.info(
@@ -199,6 +200,15 @@ pub fn maybe_initialize_db(db_config: pog.Config) {
       setup(db_config, database_url)
     }
   }
+}
+
+fn ensure_existing_database_is_ready(db_config: pog.Config) {
+  let assert Ok(database_url) = database_url_for(db_config.database)
+
+  let assert Ok(_) = run_migrate_command_with("up", database_url)
+  let _ = ensure_active_jwk(db_config)
+
+  Nil
 }
 
 fn db_exists(db_config: pog.Config) -> Bool {
@@ -318,8 +328,50 @@ fn seed_database(db_config: pog.Config) -> Result(Nil, String) {
   seed(started.data)
 }
 
+fn ensure_active_jwk(db_config: pog.Config) -> Result(Nil, String) {
+  let seed_pool_name = process.new_name("migrate_active_jwk_pool")
+  let seed_db_config = pog.Config(..db_config, pool_name: seed_pool_name)
+
+  use started <- result.try(
+    start_connection_with_retry(seed_db_config, 20)
+    |> result.map_error(string.inspect),
+  )
+
+  let db = started.data
+
+  case jwks.get_active_jwk(db) {
+    Ok(_) -> {
+      logger.info("Active JWK already present.")
+      Ok(Nil)
+    }
+    Error(_) -> {
+      logger.info("No active JWK found. Generating bootstrap JWK...")
+      seed_jwk(db)
+    }
+  }
+}
+
 fn seed(db: pog.Connection) -> Result(Nil, String) {
   logger.info("Seeding database...")
+
+  use _ <- result.try(seed_jwk(db))
+
+  case seeds.load_from_file(db, "seeds.yml") {
+    Ok(_) -> {
+      logger.info("Database seeded.")
+
+      Ok(Nil)
+    }
+    Error(e) -> {
+      logger.error("Failed to seed database: " <> e)
+
+      Error(e)
+    }
+  }
+}
+
+fn seed_jwk(db: pog.Connection) -> Result(Nil, String) {
+  logger.info("Ensuring active JWK is present...")
 
   use active_jwk <- result.try(
     jwk.generate()
@@ -337,18 +389,7 @@ fn seed(db: pog.Connection) -> Result(Nil, String) {
     |> result.map_error(database.humanize_error),
   )
 
-  case seeds.load_from_file(db, "seeds.yml") {
-    Ok(_) -> {
-      logger.info("Database seeded.")
-
-      Ok(Nil)
-    }
-    Error(e) -> {
-      logger.error("Failed to seed database: " <> e)
-
-      Error(e)
-    }
-  }
+  Ok(Nil)
 }
 
 fn run_migrate_command(command: String) -> Result(String, String) {

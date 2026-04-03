@@ -7,6 +7,8 @@ This directory contains a `kustomize`-based deployment for running `lti-example-
 - `base/`: reusable application and PostgreSQL manifests
 - `overlays/plasma/`: the deployable overlay used by the GitHub Actions workflow
 
+The `plasma` overlay is configured for the cluster's `traefik` ingress class.
+
 ## Secrets
 
 The manifests expect a runtime secret named `lti-example-tool-secrets` with these keys:

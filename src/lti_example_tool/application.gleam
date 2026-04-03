@@ -25,8 +25,8 @@ pub fn setup() -> AppContext {
 
   let db = pog.named_connection(db_config.pool_name)
 
-  // Ensure the database is initialized
-  migrate.maybe_initialize_db(db_config)
+  // Ensure the database schema and bootstrap records exist
+  migrate.ensure_initialized(db_config)
 
   let assert Ok(lti_data_provider) = db_provider.data_provider(db)
 
